@@ -148,7 +148,7 @@ pub const AstNode = union(enum) {
                 try writeIndent(writer, indent);
                 try writer.print("ret {f}", .{n.value});
             },
-            .@"fn" => |n| try writer.print("fn {s}({f}) -> {f} {{\n{f}\n}}", .{n.name.raw, n.params, n.ret, n.body}),
+            .@"fn" => |n| try writer.print("{s} :: fn({f}) -> {f} {{\n{f}\n}}", .{n.name.raw, n.params, n.ret, n.body}),
             .param => |n| try writer.print("{s}: {f}", .{n.name.raw, n.type}),
             .param_list => |n| {
                 for (n.params, 0..) |param, i| {

@@ -1,12 +1,12 @@
 const pi: f32 = 3.14159265;
 const tau = pi * 2;
 
-fn main() void {
+main :: fn() void {
     let x = 10;
     let y = factorial(10);
 }
 
-fn factorial(n: u32) u32 {
+factorial :: fn(n: u32) u32 {
     if n == 1 { ret 1; }
     ret n * factorial(n - 1);
 }

@@ -13,14 +13,13 @@ tokens: []Token,
 /// the number of tokens in the token list
 num_tokens: usize,
 /// the current position in the token list
-pos: usize,
+pos: usize = 0,
 
 pub fn init(tokens: []Token, num_tokens: usize, alloc: std.mem.Allocator) Parser {
     return Parser {
         .alloc = alloc,
         .tokens = tokens,
         .num_tokens = num_tokens,
-        .pos = 0,
     };
 }
 
@@ -90,7 +89,7 @@ pub fn parseRoot(self: *Parser) !*AstNode {
     while (!self.end()) {
         const node = try switch (self.tokens[self.pos].type) {
             .Const => self.parseConst(),
-            .Fn => self.parseFn(),
+            .Ident => self.parseFn(),
             else => {
                 std.debug.print("{any}", .{self.peek()});
                 return ParseError.UnexpectedToken;
@@ -139,9 +138,11 @@ fn parseParamList(self: *Parser) !*AstNode {
 
 /// parse a function definition from the token stream
 fn parseFn(self: *Parser) !*AstNode {
-    _ = try self.expect(.Fn);
     const name = try self.expect(.Ident);
+    _ = try self.expect(.Path);
+    _ = try self.expect(.Fn);
     const params = try self.parseParamList();
+    // todo : if type expr is omitted, default to void
     const ret = try self.parseTypeExpr();
     const body = try self.parseBlock();
     return self.allocNode(.{
