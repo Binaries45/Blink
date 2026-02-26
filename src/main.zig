@@ -56,6 +56,7 @@ pub fn main() !void {
     const semantic_elapsed: f64 = @floatFromInt(semantic_timer.read());
 
     std.debug.print("anaylsed in: {d:.2} microseconds\n", .{semantic_elapsed / 1000});
+    std.debug.print("TYPE TABLE:\n{f}\n", .{semantic.types});
     std.debug.print("GLOBAL : \n{f}\n", .{semantic.global});
     std.debug.print("#########################################\n", .{});
 }

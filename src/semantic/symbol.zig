@@ -8,12 +8,42 @@ pub const Type = union(enum) {
     optional: Optional,
     unresolved: Unresolved,
 
-    pub const PrimitiveType = enum {
+    pub const PrimitiveType = union(enum) {
         void,
-        // todo : arbitrary precision & comptime ints instead of standard ints
-        i32,
-        u32,
+        bool,
+        comptime_int,
+        int: IntType,
         f32,
+        f64,
+        f128,
+
+        pub const IntType = struct {
+            signed: bool,
+            bits: u16,
+
+            pub fn fromName(name: []const u8) ?Type {
+                if (name.len < 2) return null;
+
+                const signed = switch (name[0]) {
+                    'i' => true,
+                    'u' => false,
+                    else => return null,
+                };
+
+                const bits = std.fmt.parseInt(u16, name[1..], 10) catch return null;
+
+                if (bits == 0) return null;
+
+                return Type {
+                    .primitive = .{
+                        .int = IntType {
+                            .signed = signed,
+                            .bits = bits,
+                        }
+                    }
+                };
+            }
+        };
     };
 
     pub const StructType = struct {
@@ -21,8 +51,8 @@ pub const Type = union(enum) {
     };
 
     pub const FunctionType = struct {
-        params: []const *Type,
-        @"return": *const Type,
+        params: []*Type,
+        @"return": *Type,
     };
 
     pub const Optional = struct {
@@ -64,10 +94,29 @@ pub const Type = union(enum) {
                 }
                 try writer.print(") {f}", .{t.@"return"});
             },
-            .primitive => |t| try writer.print("{s}", .{ @tagName(t) }),
+            .primitive => |t| {
+                if (t == .int) {
+                    switch (t.int.signed) {
+                        true => try writer.print("i{d}", .{t.int.bits}),
+                        false => try writer.print("u{d}", .{t.int.bits}),
+                    }
+                    return;
+                }
+                try writer.print("{s}", .{ @tagName(t) });
+            },
             .optional => |t| try writer.print("Optional({f})", .{t.inner}),
             .unresolved => |t| try writer.print("{f}", .{t}),
         }
+    }
+
+    pub fn isUnknown(ty: Type) bool {
+        return switch (ty) {
+            .unresolved => |u| switch(u) {
+                .Unknown => true,
+                else => false,
+            },
+            else => false,
+        };
     }
 };
 

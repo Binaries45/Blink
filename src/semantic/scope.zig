@@ -15,9 +15,9 @@ pub const Scope = struct {
         }
     }
 
-    /// check for some definition of the given name.
-    pub fn get(self: *Scope, name: []const u8) ?Symbol {
-        return self.symbols.get(name);
+    /// check for some definition of the given name, if it exists return a pointer to it.
+    pub fn get(self: *Scope, name: []const u8) ?*Symbol {
+        return self.symbols.getPtr(name);
     }
 
     pub fn format(self: Scope, writer: *std.io.Writer) !void {
