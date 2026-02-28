@@ -1,6 +1,6 @@
 const std = @import("std");
 const AstNode = @import("../parsing/ast.zig").AstNode;
-const Type = @import("symbol.zig").Type;
+const Type = @import("../types/type.zig").Type;
 const Token = @import("../tokenization/token.zig").Token;
 
 /// reads the type of a node if it exists, helping to build context.

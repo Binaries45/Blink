@@ -3,8 +3,8 @@ const Scope = @import("scope.zig").Scope;
 const AstNode = @import("../parsing/ast.zig").AstNode;
 const SemanticError = @import("error.zig").SemanticError;
 const Symbol = @import("symbol.zig").Symbol;
-const Type = @import("symbol.zig").Type;
-const TypeTable = @import("type_table.zig").TypeTable;
+const Type = @import("../types/type.zig").Type;
+const TypeTable = @import("../types/table.zig").TypeTable;
 const readType = @import("read_type.zig").readType;
 
 pub const SemanticAnalyser = @This();
@@ -119,10 +119,26 @@ fn resolveType(self: *SemanticAnalyser, ty: *Type) !*Type {
     }
 }
 
+/// attempts to coerce the type of an expression into the target type, returns null on failure.
+// fn coerceTypes(self: *SemanticAnalyser, expr: *AstNode, target: *Type) ?*Type {}
+
 /// attempt to infer the type of some expression
-fn InferType(self: SemanticAnalyser, node: *AstNode) !*Type {
+fn InferType(self: *SemanticAnalyser, node: *AstNode) !*Type {
     switch (node.*) {
-        // .literal => |n| {},
+        .literal => |n| {
+            switch (n.kind) {
+                .numeric => {
+                    if (std.mem.count(u8, n.val.raw, ".") > 0) {
+                        return self.types.comptime_int_ptr;
+                    }
+                    // float literals are inferred as f128,
+                    // we can always downcast them later on
+                    return self.types.f128_ptr;
+                },
+                .bool => return self.types.bool_ptr,
+                else => return error.NotImplemented,
+            }
+        },
         .ident => |n| {
             const sym = self.global.get(n.name.raw) orelse return error.SymbolNotDefined;
             return sym.type;
@@ -133,7 +149,9 @@ fn InferType(self: SemanticAnalyser, node: *AstNode) !*Type {
         .binary => |n| {
             const lhs = try self.InferType(n.left);
             const rhs = try self.InferType(n.right);
+            // todo : attempt to coerce types together
             if (lhs == rhs) return lhs;
+            std.debug.print("{f} != {f}", .{lhs.*, rhs.*});
             return error.TypeMismatch;
         },
         else => return error.NotImplemented,

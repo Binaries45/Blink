@@ -1,6 +1,6 @@
 const std = @import("std");
 const Symbol = @import("symbol.zig").Symbol;
-const Type = @import("symbol.zig").Type;
+const Type = @import("../types/type.zig").Type;
 const SematicError = @import("error.zig").SemanticError;
 
 pub const Scope = struct {

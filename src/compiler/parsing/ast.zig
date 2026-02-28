@@ -1,6 +1,7 @@
 pub const std = @import("std");
 pub const Token = @import("../tokenization/token.zig").Token;
 pub const TokenType = @import("../tokenization/token.zig").TokenType;
+pub const Type = @import("../types/type.zig").Type;
 
 pub const AstNode = union(enum) {
     root: Root,
@@ -32,22 +33,26 @@ pub const AstNode = union(enum) {
         name: Token,
         type_expr: ?*AstNode,
         value: *AstNode,
+        type_concrete: ?*Type = null,
     };
 
     pub const LetStmt = struct {
         name: Token,
         type_expr: ?*AstNode,
         value: *AstNode,
+        type_concrete: ?*Type = null,
     };
 
     pub const IfStmt = struct {
         clause: *AstNode,
         then: *AstNode,
         @"else": ?*AstNode,
+        type: ?*Type = null,
     };
 
     pub const RetStmt = struct {
         value: *const AstNode,
+        type: ?*Type = null,
     };
 
     pub const FnStmt = struct {
@@ -75,7 +80,15 @@ pub const AstNode = union(enum) {
         statements: []const *AstNode,
     };
 
+    pub const LiteralKind = enum {
+        numeric,
+        bool,
+        char,
+        string,
+    };
+
     pub const Literal = struct {
+        kind: LiteralKind,
         val: Token,
     };
 

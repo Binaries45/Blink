@@ -251,6 +251,7 @@ fn primary(self: *Parser) ParseError!*AstNode {
     const tok = self.advance();
     return switch (tok.type) {
         .Numeric => return self.allocNode(.{ .literal = .{
+            .kind = .numeric,
             .val = tok,
         }}),
         .Ident => {
