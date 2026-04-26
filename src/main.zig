@@ -1,5 +1,6 @@
 const std = @import("std");
 const cli = @import("cli.zig");
+const Compiler = @import("compiler.zig").Compiler;
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}).init;
@@ -10,5 +11,7 @@ pub fn main() !void {
     defer args.deinit();
 
     const proc = try cli.parseArgs(&args);
-    std.debug.print("{f}", .{proc});
+    std.debug.print("{f}\n", .{proc});
+
+    try Compiler.compile(alloc, proc);
 }
