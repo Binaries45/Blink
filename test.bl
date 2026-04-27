@@ -1,4 +1,4 @@
-fn main() = {
-    let mut x = 1;
-    x <<= 5;
-}
+const pi = 3.141592653;
+const tau = 2 * pi;
+
+fn main() = {}

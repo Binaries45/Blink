@@ -409,7 +409,6 @@ fn next(self: *Self) Token {
             }
         },
         .int => {
-            self.pos += 1;
             switch (self.buffer[self.pos]) {
                 '.' => continue :state .int_period,
                 'e' => continue :state .floatExp,
@@ -432,7 +431,6 @@ fn next(self: *Self) Token {
             }
         },
         .float => {
-            self.pos += 1;
             switch (self.buffer[self.pos]) {
                 'e' => continue :state .floatExp,
                 '0'...'9' => {

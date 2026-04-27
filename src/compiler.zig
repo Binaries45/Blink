@@ -21,7 +21,6 @@ pub fn compile(alloc: std.mem.Allocator, proc: Process) !void {
         0
     );
     defer alloc.free(content);
-    // std.debug.print("{s}\n", .{content});
 
     // tokenize the file
     const tokens = try alloc.alloc(Token, size);
