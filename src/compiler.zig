@@ -1,7 +1,7 @@
 const std = @import("std");
 const Process = @import("cli.zig").Process;
-const Token = @import("compiler/frontend/token.zig");
-const Lexer = @import("compiler/frontend/lexer.zig");
+const Token = @import("compiler/frontend/Token.zig");
+const Lexer = @import("compiler/frontend/Lexer.zig");
 
 pub const Compiler = @This();
 
