@@ -10,8 +10,7 @@ pub fn compile(alloc: std.mem.Allocator, proc: Process) !void {
     const file = try std.fs.cwd().openFile(proc.src, .{});
     defer file.close();
 
-    const stat = try file.stat();
-    const size = stat.size;
+    const size = (try file.stat()).size;
     // todo : massive files might become an issue
     const content: [:0]const u8 = try file.readToEndAllocOptions(
         alloc,
@@ -23,7 +22,7 @@ pub fn compile(alloc: std.mem.Allocator, proc: Process) !void {
     defer alloc.free(content);
 
     // tokenize the file
-    const tokens = try alloc.alloc(Token, size);
+    const tokens = try alloc.alloc(Token, size / 2 + 1);
     defer alloc.free(tokens);
     var lexer = Lexer.init(content);
     const n_tokens = lexer.tokenize(tokens);
