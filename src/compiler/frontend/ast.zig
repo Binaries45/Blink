@@ -14,7 +14,7 @@ pub const OptionalTokenIndex = enum(u32) {
     _,
 
     pub fn unwrap(self: @This()) ?TokenIndex {
-        if (self == .none) null else @intFromEnum(self);
+        return if (self == .none) null else @intFromEnum(self);
     }
 
     pub fn fromOptional(idx: ?TokenIndex) @This() {
@@ -28,7 +28,7 @@ pub const OptionalNodeIndex = enum(u32) {
     _,
 
     pub fn unwrap(self: @This()) ?NodeIndex {
-        if (self == .none) null else @intFromEnum(self);
+        return if (self == .none) null else @intFromEnum(self);
     }
 
     pub fn fromOptional(idx: ?NodeIndex) @This() {
@@ -72,21 +72,28 @@ pub const Node = struct {
         expr_binary,
         /// data is .node
         expr_unary,
-        /// data is .node_node, left is condition, right is body
+        /// data is .node_node, field one is condition, field two is body
         expr_if_simple,
-        /// data is .node_node, left is condition,
-        /// right is extra, holding the then and else bodies
+        /// data is .node_node, field one is condition,
+        /// field two is extra, holding the then and else bodies
         expr_if_else,
-        /// data is .node_node, left is extra holding the iterator and the capture,
-        /// right is the body
+        /// data is .node_node, field one is extra holding the iterator and the capture,
+        /// field two is the body
         expr_for,
-        /// data is .node_node, left is condition, right is body
+        /// data is .node_node, field one is condition, field two is body
         expr_while,
         /// data is .node, pointing to the body
         expr_loop,
-        /// data is .node_node, left is the value being switched on,
-        /// right is extra holding the cases
+        /// data is .node_node, field one is the value being switched on,
+        /// field two is extra holding the cases
         expr_switch,
+        /// data is .extra_opt_node, with extra being a SubRange of the args,
+        /// and node is the callee
+        expr_call,
+        /// data is .node, holding the inner expression
+        expr_grouped,
+        /// data is .extra_range, holding the contents of the block
+        expr_block,
 
         /// data is .opt_token_opt_node, with the token being the optional
         /// label to break, and the node being the value to break out with
@@ -97,22 +104,34 @@ pub const Node = struct {
         /// data is .node, holding the value to be returned
         stmt_return,
 
-        /// data is .opt_node_opt_node, left is the first parameter,
-        /// if it exists, and right is the return type expression,
+        /// data is .opt_node_opt_node, field one is the first parameter,
+        /// if it exists, and field two is the return type expression,
         /// if it exists
-        proto_fn_simple,
+        ///
+        /// main_token is the `fn` keyword token
+        fn_proto_simple,
+        /// data is .extra_opt_node, extra is an index to a SubRange
+        /// containing each parameter type expression, with the optional
+        /// node being the return type expression, if it exists
+        ///
+        /// main_token is the `fn` keyword token
+        fn_proto_multi,
 
-        /// data is .opt_node_node, left is an optional type expression,
-        /// right is the initial value
+
+        /// data is .opt_node_node, field one is an optional type expression,
+        /// field two is the initial value
         decl_const,
-        /// data is .opt_node_node, left is an optional type expression,
-        /// right is the initial value
+        /// data is .opt_node_node, field one is an optional type expression,
+        /// field two is the initial value
         decl_let,
-        /// data is .opt_node_node, left is an optional type expression,
-        /// right is the initial value
+        /// data is .opt_node_node, field one is an optional type expression,
+        /// field two is the initial value
         decl_let_mut,
-        /// data is .node_node, left is the fn_proto_*, right is the body
+        /// data is .node_node, field one is the fn_proto_*, field two is the body
         decl_fn,
+
+        // todo : type exprs
+        // todo : patterns
     };
 
     pub const Data = union {
@@ -123,24 +142,68 @@ pub const Node = struct {
         opt_node: OptionalNodeIndex,
 
         extra: ExtraIndex,
+        extra_range: SubRange,
+        extra_opt_node: struct { ExtraIndex, OptionalNodeIndex },
 
         node_node: struct { NodeIndex, NodeIndex },
         opt_node_node: struct { OptionalNodeIndex, NodeIndex },
+        opt_node_opt_node: struct { OptionalNodeIndex, OptionalNodeIndex },
+
         opt_token_opt_node: struct { OptionalTokenIndex, OptionalNodeIndex },
     };
 };
 
 /// get the kind of the node located at `idx`
-pub fn nodeKind(self: Ast, idx: NodeIndex) Node.Kind {
+pub fn nodeKind(self: *const Ast, idx: NodeIndex) Node.Kind {
     return self.nodes.items(.kind)[idx];
 }
 
 /// get the index of the main token of the node located at `idx`
-pub fn nodeToken(self: Ast, idx: NodeIndex) TokenIndex {
+pub fn nodeToken(self: *const Ast, idx: NodeIndex) TokenIndex {
     return self.nodes.items(.main_token)[idx];
 }
 
 /// get the data of the node located at `idx`
-pub fn nodeData(self: Ast, idx: NodeIndex) Node.Data {
+pub fn nodeData(self: *const Ast, idx: NodeIndex) Node.Data {
     return self.nodes.items(.data)[idx];
 }
+
+/// get any extra data for the node located at `idx`, if the payload stored
+/// does not refer to extra data, null is returned instead
+pub fn extraData(self: *const Ast, comptime T: type, index: NodeIndex) T {
+    var result: T = undefined;
+
+    const fields = std.meta.fields(T);
+
+    inline for (fields, 0..) |f, i| {
+        @field(result, f.name) = self.extra.items[index + i];
+    }
+
+    return result;
+}
+
+pub fn extraRange(self: *const Ast, range: SubRange) []const NodeIndex {
+    return self.extra[range.start..range.end];
+}
+
+/// get the name of a function from its index,
+/// returns null if the function does not have a name
+///
+/// assumes that `idx` is the index of some `fn_proto_*`
+pub fn fnProtoName(self: *const Ast, idx: NodeIndex) ?TokenIndex {
+    const tok = self.nodeToken(idx) + 1;
+    if (self.tokens.items(.kind)[tok] != .identifier) return null;
+    return tok;
+}
+
+pub const SubRange = struct {
+    start: ExtraIndex,
+    end: ExtraIndex,
+};
+
+pub const If = struct {
+    then: NodeIndex,
+    @"else": NodeIndex,
+};
+
+// todo : other payload types
