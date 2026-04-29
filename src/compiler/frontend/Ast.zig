@@ -47,12 +47,17 @@ pub const Node = struct {
     data: Data,
 
     comptime {
-        std.testing.assert(@sizeOf(Kind) == 1);
-        std.testing.assert(@sizeOf(Data) == 8);
+        std.testing.expect(@sizeOf(Kind) == 1)
+            catch @compileError("Kind is larger than one byte");
+
+        if (!std.debug.runtime_safety) {
+            std.testing.expect(@sizeOf(Data) == 8)
+                catch @compileError("Data is larger than 8 bytes");
+        }
     }
 
     pub const Kind = enum {
-        /// the root of the file
+        /// the root of the file, guaranteed to be at `NodeIndex` 0
         root,
 
         /// data is unused, value stored in main_token

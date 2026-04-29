@@ -2,6 +2,7 @@ const std = @import("std");
 const Process = @import("cli.zig").Process;
 const Token = @import("compiler/frontend/Token.zig");
 const Lexer = @import("compiler/frontend/Lexer.zig");
+const Parser = @import("compiler/frontend/Parser.zig");
 
 pub const Compiler = @This();
 
@@ -32,6 +33,9 @@ pub fn compile(alloc: std.mem.Allocator, proc: Process) !void {
     }
 
     // parse the file
+    var parser = Parser.init(alloc, content, tokens[0..n_tokens]);
+    const ast = try parser.parse();
+    _ = ast;
 
     // semantic analysis
 
