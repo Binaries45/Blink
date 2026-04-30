@@ -22,7 +22,7 @@ pub fn compile(alloc: std.mem.Allocator, proc: Process) !void {
     );
     defer alloc.free(content);
 
-    // tokenize the file
+    // tokenize & parse the file
     const tokens = try alloc.alloc(Token, size / 2 + 1);
     defer alloc.free(tokens);
     var lexer = Lexer.init(content);
@@ -31,11 +31,7 @@ pub fn compile(alloc: std.mem.Allocator, proc: Process) !void {
     for (tokens[0..n_tokens]) |tok| {
         std.debug.print("{s}: {s}\n", .{@tagName(tok.kind), content[tok.start..tok.end]});
     }
-
-    // parse the file
-    var parser = Parser.init(alloc, content, tokens[0..n_tokens]);
-    const ast = try parser.parse();
-    _ = ast;
+    // todo : instead of tokenizing here, we simply call .next() inside of the parse function which we will add as a member of the AST, this function will collect the tokens first, and then parse them into the ast
 
     // semantic analysis
 

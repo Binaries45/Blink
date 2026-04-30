@@ -9,18 +9,5 @@ alloc: std.mem.Allocator,
 /// non owned slice, containing the raw source code
 src: []const u8,
 /// non owned slice, containing the tokens
-tokens: []const Token,
+tokens: Ast.TokenList.Slice,
 pos: Ast.TokenIndex = 0,
-
-pub fn init(alloc: std.mem.Allocator, src: []const u8, tokens: []const Token) Self {
-    return .{
-        .alloc = alloc,
-        .src = src,
-        .tokens = tokens,
-    };
-}
-
-pub fn parse(self: *Self) !Ast {
-    _ = self;
-    return error.todo;
-}

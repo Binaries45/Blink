@@ -194,7 +194,7 @@ fn next(self: *Self) Token {
                 'a'...'z', 'A'...'A', '0'...'9', '_' => continue :state .identifier,
                 else => {
                     const ident = self.buffer[result.start..self.pos];
-                    if (Token.Kind.getKeyword(ident)) |kword| {
+                    if (Token.getKeyword(ident)) |kword| {
                         result.kind = kword;
                     }
                 },
