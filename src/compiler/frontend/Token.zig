@@ -75,6 +75,7 @@ pub const Kind = enum {
     // keywords
     true,
     false,
+    @"pub",
     @"fn",
     ret,
     @"const",
@@ -156,6 +157,7 @@ pub const symbol_map = std.StaticStringMap(Kind).initComptime(.{
 pub const keyword_map = std.StaticStringMap(Kind).initComptime(.{
     .{"true", .true},
     .{"false", .false},
+    .{"pub", .@"pub"},
     .{"fn", .@"fn"},
     .{"ret", .ret},
     .{"const", .@"const"},

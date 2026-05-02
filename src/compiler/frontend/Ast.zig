@@ -8,7 +8,7 @@ pub const Ast = @This();
 src: [:0]const u8,
 tokens: TokenList.Slice,
 nodes: NodeList.Slice,
-extra: std.ArrayList(NodeIndex),
+extra: []NodeIndex,
 errors: []const Error,
 
 pub const TokenIndex = u32;
@@ -239,7 +239,7 @@ pub fn parse(alloc: std.mem.Allocator, src: [:0]const u8) !Ast {
         if (token.kind == .eof) break;
     }
 
-    var token_slice = try tokens.toOwnedSlice();
+    var token_slice = tokens.toOwnedSlice();
     errdefer token_slice.deinit(alloc);
 
     // parse it
@@ -265,15 +265,15 @@ fn parseTokens(alloc: std.mem.Allocator, src: [:0]const u8, tokens: Ast.TokenLis
     const estimated_nodes = tokens.len / 2 + 1;
     try parser.nodes.ensureTotalCapacity(alloc, estimated_nodes);
 
-    parser.parseRoot();
+    try parser.parseRoot();
 
-    try parser.errors.shrinkRetainingCapacity(parser.errors.items.len);
-    try parser.extra.shrinkRetainingCapacity(parser.extra.items.len);
+    parser.errors.shrinkRetainingCapacity(parser.errors.items.len);
+    parser.extra.shrinkRetainingCapacity(parser.extra.items.len);
 
     return .{
         .src = src,
         .tokens = tokens,
-        .nodes = try parser.nodes.toOwnedSlice(),
+        .nodes = parser.nodes.toOwnedSlice(),
         .extra = try parser.extra.toOwnedSlice(alloc),
         .errors = try parser.errors.toOwnedSlice(alloc),
     };

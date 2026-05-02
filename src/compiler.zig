@@ -24,7 +24,7 @@ pub fn compile(alloc: std.mem.Allocator, proc: Process) !void {
     defer alloc.free(content);
 
     // tokenize & parse the file
-    const ast = Ast.parse(alloc, content);
+    const ast = try Ast.parse(alloc, content);
     _ = ast;
 
     // semantic analysis
