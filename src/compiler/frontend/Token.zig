@@ -169,6 +169,10 @@ pub const keyword_map = std.StaticStringMap(Kind).initComptime(.{
     .{"whiel", .@"while"},
     .{"for", .@"for"},
     .{"loop", .loop},
+    // not sure if i want to have impl blocks,
+    // as i do also plan on extending the @This()
+    // function in blink, which would clash with
+    // rust style impl blocks.
     .{"impl", .impl},
     .{"defer", .@"defer"},
 });

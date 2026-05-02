@@ -1,12 +1,15 @@
 const std = @import("std");
 const Token = @import("Token.zig");
+const Lexer = @import("Lexer.zig");
+const Parser = @import("Parser.zig");
 
 pub const Ast = @This();
 
-src: []const u8,
-tokens: TokenList,
-nodes: NodeList,
+src: [:0]const u8,
+tokens: TokenList.Slice,
+nodes: NodeList.Slice,
 extra: std.ArrayList(NodeIndex),
+errors: []const Error,
 
 pub const TokenIndex = u32;
 pub const OptionalTokenIndex = enum(u32) {
@@ -40,6 +43,14 @@ pub const ExtraIndex = u32;
 
 pub const TokenList = std.MultiArrayList(Token);
 pub const NodeList = std.MultiArrayList(Node);
+
+pub const Error = struct {
+    kind: Kind,
+
+    pub const Kind = enum {
+        invalid,
+    };
+};
 
 pub const Node = struct {
     kind: Kind,
@@ -212,3 +223,58 @@ pub const If = struct {
 };
 
 // todo : other payload types
+
+pub fn parse(alloc: std.mem.Allocator, src: [:0]const u8) !Ast {
+    // build the token list
+    var tokens = Ast.TokenList{};
+    defer tokens.deinit(alloc);
+
+    const estimated_tokens = src.len / 8;
+    try tokens.ensureTotalCapacity(alloc, estimated_tokens);
+    var lexer = Lexer.init(src);
+
+    while (true) {
+        const token = lexer.next();
+        try tokens.append(alloc, token);
+        if (token.kind == .eof) break;
+    }
+
+    var token_slice = try tokens.toOwnedSlice();
+    errdefer token_slice.deinit(alloc);
+
+    // parse it
+    return parseTokens(alloc, src, token_slice);
+}
+
+fn parseTokens(alloc: std.mem.Allocator, src: [:0]const u8, tokens: Ast.TokenList.Slice) !Ast {
+    var parser: Parser = .{
+        .alloc = alloc,
+        .src = src,
+        .tokens = tokens,
+        .errors = .empty,
+        .extra = .empty,
+        .nodes = .empty,
+        .scratch = .empty,
+    };
+
+    defer parser.errors.deinit(alloc);
+    defer parser.extra.deinit(alloc);
+    defer parser.nodes.deinit(alloc);
+    defer parser.scratch.deinit(alloc);
+
+    const estimated_nodes = tokens.len / 2 + 1;
+    try parser.nodes.ensureTotalCapacity(alloc, estimated_nodes);
+
+    parser.parseRoot();
+
+    try parser.errors.shrinkRetainingCapacity(parser.errors.items.len);
+    try parser.extra.shrinkRetainingCapacity(parser.extra.items.len);
+
+    return .{
+        .src = src,
+        .tokens = tokens,
+        .nodes = try parser.nodes.toOwnedSlice(),
+        .extra = try parser.extra.toOwnedSlice(alloc),
+        .errors = try parser.errors.toOwnedSlice(alloc),
+    };
+}

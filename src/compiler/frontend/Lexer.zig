@@ -52,17 +52,7 @@ pub fn init(src: [:0]const u8) Self {
     };
 }
 
-/// tokenize the contents of self.buffer, writing each token to `buf`
-pub fn tokenize(self: *Self, buf: []Token) usize {
-    var i: usize = 0;
-    while (true) : (i += 1) {
-        buf[i] = self.next();
-        if (buf[i].kind == .eof) break;
-    }
-    return i;
-}
-
-fn next(self: *Self) Token {
+pub fn next(self: *Self) Token {
     var result: Token = .{
         .kind = undefined,
         .start = self.pos,
