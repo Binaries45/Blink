@@ -93,7 +93,9 @@ fn parseContainerMembers(self: *Self) ParseError!Members {
         err,
     } = .none;
 
-    var last_field: Ast.TokenIndex = undefined;
+    // todo : make var when we actually use it
+    const last_field: Ast.TokenIndex = undefined;
+    _ = last_field;
     var trailing: bool = false;
     // todo : skip all leading comments if they exist
 
@@ -101,13 +103,26 @@ fn parseContainerMembers(self: *Self) ParseError!Members {
         // skip comments
         sw: switch (self.tokenKind(self.pos)) {
             // outermost container items
-            .@"pub", .@"fn", .@"const" => |t| {
+            .@"pub", .@"fn", .@"inline", .@"const" => |t| {
                 self.pos += @intFromBool(t == .@"pub");
 
-                // todo : actually parse the decl
+                if (t == .@"inline") {
+                    switch (self.tokenKind(self.pos + 1)) {
+                        .@"for", .@"while" => |ct| continue :sw ct,
+                        else => {},
+                    }
+                }
 
+                const decl = try self.parseTopLevelDecl();
+                if (decl) |d| {
+                    if (field_state == .seen) field_state = .{ .end = decl };
+                    try self.scratch.append(self.alloc, d);
+                }
                 trailing = self.tokenKind(self.pos - 1) == .semicolon;
             },
+            else => {
+                // todo : this
+            }
         }
     }
 
@@ -130,3 +145,7 @@ fn parseContainerMembers(self: *Self) ParseError!Members {
     };
 }
 
+fn parseTopLevelDecl(self: *Self) ParseError!?Ast.NodeIndex {
+    _ = self;
+    return error.OutOfMemory;
+}
