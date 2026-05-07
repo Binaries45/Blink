@@ -104,8 +104,6 @@ fn parseContainerMembers(self: *Self) ParseError!Members {
         sw: switch (self.tokenKind(self.pos)) {
             // outermost container items
             .@"pub", .@"fn", .@"inline", .@"const" => |t| {
-                self.pos += @intFromBool(t == .@"pub");
-
                 if (t == .@"inline") {
                     switch (self.tokenKind(self.pos + 1)) {
                         .@"for", .@"while" => |ct| continue :sw ct,
@@ -113,12 +111,19 @@ fn parseContainerMembers(self: *Self) ParseError!Members {
                     }
                 }
 
+                self.pos += @intFromBool(t == .@"pub");
                 const decl = try self.parseTopLevelDecl();
                 if (decl) |d| {
-                    if (field_state == .seen) field_state = .{ .end = decl };
+                    if (field_state == .seen) field_state = .{ .end = d };
                     try self.scratch.append(self.alloc, d);
                 }
                 trailing = self.tokenKind(self.pos - 1) == .semicolon;
+            },
+            .eof, .r_brace => {
+                // todo : if theres a doc comment,
+                //  emit a warning that it has nothing to attach to
+                //  (this will only be needed when we support comments fully)
+                break;
             },
             else => {
                 // todo : this
@@ -132,8 +137,10 @@ fn parseContainerMembers(self: *Self) ParseError!Members {
         return Members {
             .len = items.len,
             .data = .{ .opt_node_opt_node = .{
-                if (items.len >= 1) items[0] else Ast.OptionalNodeIndex.none,
-                if (items.len >= 2) items[1] else Ast.OptionalNodeIndex.none,
+                if (items.len >= 1) Ast.OptionalNodeIndex.fromOptional(items[0])
+                else Ast.OptionalNodeIndex.none,
+                if (items.len >= 2) Ast.OptionalNodeIndex.fromOptional(items[1])
+                else Ast.OptionalNodeIndex.none,
             }},
             .trailing = trailing,
         };
