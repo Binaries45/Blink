@@ -18,6 +18,8 @@ errors: std.ArrayList(Ast.Error),
 pub const ParseError = error {
     OutOfMemory,
     ExpectedEof,
+    ExpectedFn,
+    ExpectedPubItem,
 };
 
 const Members = struct {
@@ -53,6 +55,50 @@ fn listToRange(self: *Self, nodes: []const Ast.NodeIndex) ParseError!Ast.SubRang
 
 fn tokenKind(self: *Self, idx: Ast.TokenIndex) Token.Kind {
     return self.tokens.items(.kind)[idx];
+}
+
+fn nodeKind(self: *Self, idx: Ast.NodeIndex) Ast.Node.Kind {
+    return self.nodes.items(.kind)[idx];
+}
+
+fn nodeMainToken(self: *Self, idx: Ast.NodeIndex) Ast.TokenIndex {
+    return self.nodes.items(.main_token)[idx];
+}
+
+fn nodeData(self: *Self, idx: Ast.NodeIndex) Ast.Node.Data {
+    return self.nodes.items(.data)[idx];
+}
+
+fn next(self: *Self) Ast.TokenIndex {
+    const result = self.pos;
+    self.pos += 1;
+    return result;
+}
+
+fn addNode(self: *Self, node: Ast.Node) !Ast.NodeIndex {
+    const result = self.nodes.len;
+    self.nodes.append(self.alloc, node);
+    return result;
+}
+
+fn reserveNode(self: *Self, kind: Ast.Node.Kind) !Ast.NodeIndex {
+    try self.nodes.resize(self.alloc, self.nodes.len + 1);
+    self.nodes.items(.kind)[self.nodes.len - 1] = kind;
+    return @intCast(self.nodes.len - 1);
+}
+
+fn unreserveNode(self: *Self, idx: Ast.NodeIndex) void {
+    if (idx == self.nodes.len) {
+        self.nodes.resize(self.alloc, self.nodes.len - 1) catch unreachable;
+    } else {
+        // todo : mark this node as unreachable (or a no-op)
+        //  so that it can be caught as an error later
+    }
+}
+
+fn setNode(self: *Self, idx: usize, node: Ast.Node) Ast.NodeIndex {
+    self.nodes.set(idx, node);
+    return @intCast(idx);
 }
 
 /// expect a token, if it is next in the stream return it and advance,
@@ -153,6 +199,49 @@ fn parseContainerMembers(self: *Self) ParseError!Members {
 }
 
 fn parseTopLevelDecl(self: *Self) ParseError!?Ast.NodeIndex {
+    // keyword like `inline`
+    const modifier_token = self.next();
+    var expect_fn: bool = false;
+
+    switch(self.tokenKind(modifier_token)) {
+        .@"inline" => expect_fn = true,
+        else => self.pos -= 1,
+    }
+
+    const opt_fn_proto = try self.parseFnProto();
+    if (opt_fn_proto) |fn_proto| {
+        switch(self.tokenKind(self.pos)) {
+            .l_brace => {
+                const fn_decl = try self.reserveNode(.decl_fn);
+                errdefer self.unreserveNode(fn_decl);
+
+                const body = try self.parseExpr();
+                return self.setNode(fn_decl, .{
+                    .kind = .decl_fn,
+                    .main_token = self.nodeMainToken(fn_proto),
+                    .data = .{ .node_node = .{
+                        fn_proto,
+                        body,
+                    }}
+                });
+            },
+            else => {
+                // todo : emit warning that we expected  {
+                return null;
+            }
+        }
+    }
+
+    if (expect_fn) return error.ExpectedFn;
+    return error.ExpectedPubItem;
+}
+
+fn parseFnProto(self: *Self) ParseError!?Ast.NodeIndex {
+    _ = self;
+    return error.OutOfMemory;
+}
+
+fn parseExpr(self: *Self) ParseError!Ast.NodeIndex {
     _ = self;
     return error.OutOfMemory;
 }
