@@ -142,14 +142,14 @@ fn parseContainerMembers(self: *Self) ParseError!Members {
     // todo : make var when we actually use it
     const last_field: Ast.TokenIndex = undefined;
     _ = last_field;
-    var trailing: bool = false;
     // todo : skip all leading comments if they exist
 
+    var trailing: bool = false;
     while (true) {
-        // skip comments
+        // consume any doc comments and save for later
         sw: switch (self.tokenKind(self.pos)) {
             // outermost container items
-            .@"pub", .@"fn", .@"inline", .@"const" => |t| {
+            .@"pub", .@"inline", .@"const", .@"fn" => |t| {
                 if (t == .@"inline") {
                     switch (self.tokenKind(self.pos + 1)) {
                         .@"for", .@"while" => |ct| continue :sw ct,
