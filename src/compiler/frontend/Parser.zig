@@ -238,10 +238,13 @@ fn parseTopLevelDecl(self: *Self) ParseError!?Ast.NodeIndex {
 
 fn parseFnProto(self: *Self) ParseError!?Ast.NodeIndex {
     _ = self;
+    // todo : parse the fn proto into its appropriate proto kind.
     return error.OutOfMemory;
 }
 
 fn parseExpr(self: *Self) ParseError!Ast.NodeIndex {
     _ = self;
+    // todo check for expr and dispatch, if we see a block we treat it as such,
+    //  otherwise parse with precedence climbing.
     return error.OutOfMemory;
 }
