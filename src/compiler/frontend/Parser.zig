@@ -20,6 +20,7 @@ pub const ParseError = error {
     ExpectedEof,
     ExpectedFn,
     ExpectedPubItem,
+    InvalidContainerType,
 };
 
 const Members = struct {
@@ -247,4 +248,28 @@ fn parseExpr(self: *Self) ParseError!Ast.NodeIndex {
     // todo check for expr and dispatch, if we see a block we treat it as such,
     //  otherwise parse with precedence climbing.
     return error.OutOfMemory;
+}
+
+/// parse a container expr,
+///
+/// ex.
+/// ```
+/// struct { ... }
+/// enum { ... }
+/// union { ... }
+/// trait { ... }
+/// ```
+fn parseContainer(self: *Self) ParseError!void {
+    const main_token = self.pos;
+    switch (self.tokenKind(main_token)) {
+        .@"struct", .@"enum", .trait => {}, // todo : add union keyword
+        else => return error.InvalidContainerType,
+    }
+
+    _ = try self.consume(.l_brace);
+    _ = try self.parseContainerMembers();
+    _ = try self.consume(.r_brace);
+    // todo : maybe we expect a semicolon, but if we have syntax like
+    // const T = struct { ... };
+    // then it makes more sense for the cont decl parser to expect the semicolon.
 }
