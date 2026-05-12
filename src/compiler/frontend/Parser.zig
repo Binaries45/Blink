@@ -262,7 +262,7 @@ fn parseExpr(self: *Self) ParseError!Ast.NodeIndex {
 fn parseContainer(self: *Self) ParseError!void {
     const main_token = self.pos;
     switch (self.tokenKind(main_token)) {
-        .@"struct", .@"enum", .trait => {}, // todo : add union keyword
+        .@"struct", .@"union", .@"enum", .trait => {}, // todo : add union keyword
         else => return error.InvalidContainerType,
     }
 
