@@ -237,9 +237,17 @@ fn parseTopLevelDecl(self: *Self) ParseError!?Ast.NodeIndex {
     return error.ExpectedPubItem;
 }
 
+/// parse a function signature
 fn parseFnProto(self: *Self) ParseError!?Ast.NodeIndex {
     _ = self;
     // todo : parse the fn proto into its appropriate proto kind.
+    return error.OutOfMemory;
+}
+
+/// parse a top level const decl statement
+fn parseGlobalDecl(self: *Self) ParseError!?Ast.NodeIndex {
+     _ = self;
+    // todo : parse the const
     return error.OutOfMemory;
 }
 
