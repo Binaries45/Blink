@@ -132,6 +132,12 @@ pub const Node = struct {
         ///
         /// main_token is the `fn` keyword token
         fn_proto_multi,
+        /// data is .extra_opt_node, extra is a index into the actual fn_proto_*,
+        /// and the opt node is the return type expr, if this is null,
+        /// the return type is unspecified and therefore void.
+        ///
+        /// main_token is the `fn` keyword token
+        fn_proto,
 
 
         /// data is .opt_node_node, field one is an optional type expression,

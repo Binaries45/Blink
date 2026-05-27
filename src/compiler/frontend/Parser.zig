@@ -102,11 +102,10 @@ fn setNode(self: *Self, idx: usize, node: Ast.Node) Ast.NodeIndex {
     return @intCast(idx);
 }
 
-/// expect a token, if it is next in the stream return it and advance,
+/// expect a token, if it is next in the stream return its index and advance,
 /// otherwise return null
-fn consume(self: *Self, token_kind: Token.Kind) ?Token {
-    if (self.tokens.items(.kind)[self.pos] != token_kind) return null;
-    self.tokens.get(self.pos);
+fn consume(self: *Self, token_kind: Token.Kind) ?Ast.TokenIndex {
+    return if (self.tokenKind(self.pos) == token_kind) self.next() else null;
 }
 
 /// parse a file from the root
@@ -173,7 +172,10 @@ fn parseContainerMembers(self: *Self) ParseError!Members {
                 break;
             },
             else => {
-                // todo : this
+                // todo : this, although it may not be needed.
+                //  Zig uses it for parsing C-style containers, which we wont
+                //  need, but ill need to look more into it
+                //  before making a decision.
             }
         }
     }
@@ -199,8 +201,11 @@ fn parseContainerMembers(self: *Self) ParseError!Members {
     };
 }
 
+// todo : this function should also be recoverable, if it errors out the parser
+//  should search for the next container member to try and parse, that way we
+//  can yield multiple errors if needed
 fn parseTopLevelDecl(self: *Self) ParseError!?Ast.NodeIndex {
-    // keyword like `inline`
+    // keywords like `inline`
     const modifier_token = self.next();
     var expect_fn: bool = false;
 
@@ -234,12 +239,28 @@ fn parseTopLevelDecl(self: *Self) ParseError!?Ast.NodeIndex {
     }
 
     if (expect_fn) return error.ExpectedFn;
+
+    // todo : try to parse a top level constant decl,
+    //  by this point it is the only thing we can expect
+
     return error.ExpectedPubItem;
 }
 
 /// parse a function signature
 fn parseFnProto(self: *Self) ParseError!?Ast.NodeIndex {
-    _ = self;
+    const fn_token = self.consume(.@"fn") orelse return null;
+
+    const proto_index = try self.reserveNode(.fn_proto);
+    errdefer self.unreserveNode(proto_index);
+
+    _ = self.consume(.identifier);
+
+    // todo parse params
+
+    _ = self.consume(.bang); // consume the bang for fallible functions
+
+    // todo : parse return type expr
+
     // todo : parse the fn proto into its appropriate proto kind.
     return error.OutOfMemory;
 }
