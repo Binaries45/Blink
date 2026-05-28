@@ -10,10 +10,9 @@ alloc: std.mem.Allocator,
 src: []const u8,
 tokens: []const Token,
 pos: usize = 0,
-errors: std.ArrayList(Ast.Error),
+errors: std.ArrayList(ParseError),
 
 pub const ParseError = error {
-    OutOfMemory,
     ExpectedEof,
     ExpectedFn,
     ExpectedPubItem,
@@ -227,8 +226,8 @@ pub fn consume(self: *Self, kind: Token.Kind) ?Token {
 }
 
 /// parse a file from the root, and return all top level nodes
-pub fn parseRoot(self: *Self) ![]const Ast.Node {
+pub fn parseRoot(self: *Self) ![]const *Ast.Stmt {
     _ = self;
     // todo : parse container members
-    return error.OutOfMemory;
+    return error.ExpectedEof;
 }

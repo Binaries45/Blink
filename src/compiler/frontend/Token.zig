@@ -3,6 +3,8 @@ const std = @import("std");
 pub const Token = @This();
 
 kind: Kind,
+// todo : we might be able to cram the range into a u64 using the first 32 bits
+//  for the start and the last 32 for the end
 start: usize,
 end: usize,
 

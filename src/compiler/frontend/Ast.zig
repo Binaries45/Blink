@@ -5,141 +5,149 @@ const Parser = @import("Parser.zig");
 
 const Ast = @This();
 
-/// all of the top level nodes
-root: []const Node,
+/// all of the top level declaration nodes
+root: []const *Stmt,
 /// all errors encountered during parsing
 errors: []const Parser.ParseError,
 
-pub const Node = union(enum) {
+/// a statement node of the `Ast`
+pub const Stmt = union(enum) {
+    let: LetStmt,
+    let_mut: LetMutStmt,
+    fn_decl: FnStmt,
+    /// an expression used as a statement
+    expr: *Expr,
+    /// a public item declaration, can be a constant, or a function
+    pub_item: *Stmt,
 
+    const LetStmt = struct {
+        // todo
+    };
+
+    const LetMutStmt = struct {
+        // todo
+    };
+
+    const FnStmt = struct {
+        // todo
+    };
 };
 
-// pub const Node = struct {
-//     kind: Kind,
-//     main_token: TokenIndex,
-//     data: Data,
-//
-//     comptime {
-//         std.testing.expect(@sizeOf(Kind) == 1)
-//             catch @compileError("Kind is larger than one byte");
-//
-//         if (!std.debug.runtime_safety) {
-//             std.testing.expect(@sizeOf(Data) == 8)
-//                 catch @compileError("Data is larger than 8 bytes");
-//         }
-//     }
-//
-//     pub const Kind = enum {
-//         /// the root of the file, guaranteed to be at `NodeIndex` 0
-//         root,
-//
-//         /// data is unused, value stored in main_token
-//         literal_int,
-//         /// data is unused, value stored in main_token
-//         literal_float,
-//         /// data is unused, value stored in main_token
-//         literal_char,
-//         /// data is unused, value stored in main_token
-//         literal_string,
-//         /// data is unused, value stored in main_token
-//         literal_bool,
-//
-//         /// data is unused, name stored in main_token
-//         expr_ident,
-//         /// data is .node_node
-//         expr_binary,
-//         /// data is .node
-//         expr_unary,
-//         /// data is .node_node, field one is condition, field two is body
-//         expr_if_simple,
-//         /// data is .node_node, field one is condition,
-//         /// field two is extra, holding the then and else bodies
-//         expr_if_else,
-//         /// data is .node_node, field one is extra holding the iterator and the capture,
-//         /// field two is the body
-//         expr_for,
-//         /// data is .node_node, field one is condition, field two is body
-//         expr_while,
-//         /// data is .node, pointing to the body
-//         expr_loop,
-//         /// data is .node_node, field one is the value being switched on,
-//         /// field two is extra holding the cases
-//         expr_switch,
-//         /// data is .extra_opt_node, with extra being a SubRange of the args,
-//         /// and node is the callee
-//         expr_call,
-//         /// data is .node, holding the inner expression
-//         expr_grouped,
-//         /// data is .extra_range, holding the contents of the block
-//         expr_block,
-//
-//         /// data is .opt_token_opt_node, with the token being the optional
-//         /// label to break, and the node being the value to break out with
-//         stmt_break,
-//         /// data is .opt_token_opt_node, with the token being the optional
-//         /// label to break, and the node being the value to break out with
-//         stmt_continue,
-//         /// data is .node, holding the value to be returned
-//         stmt_return,
-//
-//         /// data is .opt_node_opt_node, field one is the first parameter,
-//         /// if it exists, and field two is the return type expression,
-//         /// if it exists
-//         ///
-//         /// main_token is the `fn` keyword token
-//         fn_proto_simple,
-//         /// data is .extra_opt_node, extra is an index to a SubRange
-//         /// containing each parameter type expression, with the optional
-//         /// node being the return type expression, if it exists
-//         ///
-//         /// main_token is the `fn` keyword token
-//         fn_proto_multi,
-//         /// data is .extra_opt_node, extra is a index into the actual fn_proto_*,
-//         /// and the opt node is the return type expr, if this is null,
-//         /// the return type is unspecified and therefore void.
-//         ///
-//         /// main_token is the `fn` keyword token
-//         fn_proto,
-//
-//
-//         /// data is .opt_node_node, field one is an optional type expression,
-//         /// field two is the initial value
-//         decl_const,
-//         /// data is .opt_node_node, field one is an optional type expression,
-//         /// field two is the initial value
-//         decl_let,
-//         /// data is .opt_node_node, field one is an optional type expression,
-//         /// field two is the initial value
-//         decl_let_mut,
-//         /// data is .node_node, field one is the fn_proto_*, field two is the body
-//         decl_fn,
-//
-//         // todo : type exprs
-//         // todo : patterns
-//     };
-//
-//     pub const Data = union {
-//         token: TokenIndex,
-//         opt_token: OptionalTokenIndex,
-//
-//         node: NodeIndex,
-//         opt_node: OptionalNodeIndex,
-//
-//         extra: ExtraIndex,
-//         extra_range: SubRange,
-//         extra_opt_node: struct { ExtraIndex, OptionalNodeIndex },
-//
-//         node_node: struct { NodeIndex, NodeIndex },
-//         opt_node_node: struct { OptionalNodeIndex, NodeIndex },
-//         opt_node_opt_node: struct { OptionalNodeIndex, OptionalNodeIndex },
-//
-//         opt_token_opt_node: struct { OptionalTokenIndex, OptionalNodeIndex },
-//     };
-// };
+/// an expression node of the `Ast`
+pub const Expr = union(enum) {
+    // literals
+    literal_int: Token,
+    literal_float: Token,
+    literal_char: Token,
+    literal_string: Token,
+    literal_bool: Token,
+    ident: Token,
+
+    // conventional expressions
+    unary: Unary,
+    binary: Binary,
+    /// function call
+    call: Call,
+    /// call to a builtin function
+    builtin_call: BuiltinCall,
+    /// member access via the '.' operator
+    access: Access,
+
+    // types
+    /// `struct { ... }`
+    literal_struct: StructLit,
+    /// `enum { ... }`
+    /// or
+    /// `enum(Int) { ... }`
+    literal_enum: EnumLit,
+    /// `union { ... }`
+    /// or
+    /// `union (Tag) { ... }`
+    literal_union: UnionLit,
+    // todo:  packed types `packed(Int) type_expr`
+    /// `todo : trait syntax`
+    literal_trait: TraitLit,
+
+    // control flow
+    @"if": IfExpr,
+    @"switch": SwitchExpr,
+    @"for": ForExpr,
+    @"while": WhileExpr,
+    @"loop": LoopExpr,
+    block: BlockExpr,
+
+    const Unary = struct {
+        op: Token,
+        operand: *Expr,
+    };
+
+    const Binary = struct {
+        op: Token,
+        left: *Expr,
+        right: *Expr,
+    };
+
+    const Call = struct {
+        name: Token,
+        args: []const *Expr,
+    };
+
+    const BuiltinCall = struct {
+        name: Token,
+        args: []const *Expr,
+    };
+
+    const Access = struct {
+        /// the expression yielding the container to access from
+        container: *Expr,
+        /// the name of the member to access
+        member: Token,
+    };
+
+    const StructLit = struct {
+        // todo
+    };
+
+    const EnumLit = struct {
+        // todo
+    };
+
+    const UnionLit = struct {
+        // todo
+    };
+
+    const TraitLit = struct {
+        // todo
+    };
+
+    const IfExpr = struct {
+        // todo
+    };
+
+    const SwitchExpr = struct {
+        // todo
+    };
+
+    const ForExpr = struct {
+        // todo
+    };
+
+    const WhileExpr = struct {
+        // todo
+    };
+
+    const LoopExpr = struct {
+        // todo
+    };
+
+    const BlockExpr = struct {
+        // todo
+    };
+};
 
 /// parse an ast from the given source
 pub fn parse(alloc: std.mem.Allocator, src: [:0]const u8) !Ast {
-    var tokens = std.ArrayList(Token);
+    var tokens = try std.ArrayList(Token).initCapacity(alloc, 0);
     defer tokens.deinit(alloc);
 
     const estimated_tokens = src.len / 8;
@@ -152,8 +160,8 @@ pub fn parse(alloc: std.mem.Allocator, src: [:0]const u8) !Ast {
         if (token.kind == .eof) break;
     }
 
-    var token_slice = tokens.toOwnedSlice();
-    errdefer token_slice.deinit(alloc);
+    const token_slice = try tokens.toOwnedSlice(alloc);
+    errdefer alloc.free(token_slice);
 
     return parseTokens(alloc, src, token_slice);
 }
@@ -164,16 +172,13 @@ pub fn parseTokens(alloc: std.mem.Allocator, src: [:0]const u8, tokens: []const 
         .src = src,
         .tokens = tokens,
         .errors = .empty,
-        .extra = .empty,
-        .nodes = .empty,
-        .scratch = .empty,
     };
     defer parser.errors.deinit(alloc);
 
     const root = try parser.parseRoot();
 
     return .{
-        .errors = parser.errors.toOwnedSlice(alloc),
+        .errors = try parser.errors.toOwnedSlice(alloc),
         .root = root,
     };
 }
