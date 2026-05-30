@@ -2,8 +2,7 @@ const std = @import("std");
 const Ast = @import("Ast.zig");
 const Token = @import("Token.zig");
 
-pub const Parser = @This();
-const Self = @This();
+const Parser = @This();
 
 alloc: std.mem.Allocator,
 /// non owned slice, containing the raw source code
@@ -19,21 +18,6 @@ pub const ParseError = error {
     InvalidContainerType,
 };
 
-// /// parse a file from the root
-// pub fn parseRoot(self: *Self) ParseError!void {
-//     self.nodes.appendAssumeCapacity(.{
-//         .kind = .root,
-//         .main_token = 0,
-//         .data = undefined,
-//     });
-//     const root_members = try self.parseContainerMembers();
-//     const root_decls = try root_members.toRange(self);
-//
-//     if (self.tokenKind(self.pos) != .eof) return ParseError.ExpectedEof;
-//
-//     self.nodes.items(.data)[0] = .{ .extra_range = root_decls };
-// }
-//
 // fn parseContainerMembers(self: *Self) ParseError!Members {
 //     const scratch_top = self.scratch.items.len;
 //     defer self.scratch.shrinkRetainingCapacity(scratch_top);
@@ -215,19 +199,35 @@ pub const ParseError = error {
 // }
 
 /// return the next token to parse
-pub fn next(self: *Self) Token {
-    const res = self.tokens[self.pos];
-    self.pos += 1;
+pub fn next(p: *Parser) Token {
+    const res = p.tokens[p.pos];
+    p.pos += 1;
     return res;
 }
 
-pub fn consume(self: *Self, kind: Token.Kind) ?Token {
-    return if (self.tokens[self.pos].kind == kind) self.next() else null;
+pub fn consume(p: *Parser, kind: Token.Kind) ?Token {
+    return if (p.tokens[p.pos].kind == kind) p.next() else null;
 }
 
 /// parse a file from the root, and return all top level nodes
-pub fn parseRoot(self: *Self) ![]const *Ast.Stmt {
-    _ = self;
-    // todo : parse container members
+pub fn parseRoot(p: *Parser) ![]const *Ast.Stmt {
+    return p.parseContainerMembers();
+}
+
+pub fn parseContainerMembers(p: *Parser) ![]const *Ast.Stmt {
+    // state machine over next token:
+    // ident -> Field
+    // fn -> fnDecl
+    // pub -> PubItem
+    // let -> LetStmt
+    // ... other stuff I cant think of
+    // else -> error : unexpected token, find start of next decl, return error
+    switch (p.tokens[p.pos].kind) {
+        .identifier => {},
+        .@"pub" => {},
+        .@"fn" => {},
+        .let => {},
+        else => {},
+    }
     return error.ExpectedEof;
 }

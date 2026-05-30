@@ -5,7 +5,7 @@ const Lexer = @import("compiler/frontend/Lexer.zig");
 const Parser = @import("compiler/frontend/Parser.zig");
 const Ast = @import("compiler/frontend/Ast.zig");
 
-pub const Compiler = @This();
+const Compiler = @This();
 
 pub fn compile(alloc: std.mem.Allocator, proc: Process) !void {
     // read the given file into buffer

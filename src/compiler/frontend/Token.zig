@@ -1,6 +1,6 @@
 const std = @import("std");
 
-pub const Token = @This();
+const Token = @This();
 
 kind: Kind,
 // todo : we might be able to cram the range into a u64 using the first 32 bits
