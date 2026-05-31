@@ -9,203 +9,44 @@ alloc: std.mem.Allocator,
 src: []const u8,
 tokens: []const Token,
 pos: usize = 0,
+// todo : maybe make ParseError a type that can hold onto more context,
+//  like the offending token, and a tag representing error type, alongside
+//  anything else that may help the compiler to generate a helpful message
 errors: std.ArrayList(ParseError),
 
 pub const ParseError = error {
+    UnexpectedToken,
     ExpectedEof,
     ExpectedFn,
     ExpectedPubItem,
     InvalidContainerType,
 };
 
-// fn parseContainerMembers(self: *Self) ParseError!Members {
-//     const scratch_top = self.scratch.items.len;
-//     defer self.scratch.shrinkRetainingCapacity(scratch_top);
-//
-//     var field_state: union(enum) {
-//         /// no fields have been seen
-//         none,
-//         /// currently parsing fields
-//         seen,
-//         /// saw fields, and then a declaration after
-//         /// payload is the first token of the previous declaration
-//         end: Ast.TokenIndex,
-//         /// there was a declaration between fields
-//         err,
-//     } = .none;
-//
-//     // todo : make var when we actually use it
-//     const last_field: Ast.TokenIndex = undefined;
-//     _ = last_field;
-//     // todo : skip all leading comments if they exist
-//
-//     var trailing: bool = false;
-//     while (true) {
-//         // consume any doc comments and save for later
-//         sw: switch (self.tokenKind(self.pos)) {
-//             // outermost container items
-//             .@"pub", .@"inline", .@"const", .@"fn" => |t| {
-//                 if (t == .@"inline") {
-//                     switch (self.tokenKind(self.pos + 1)) {
-//                         .@"for", .@"while" => |ct| continue :sw ct,
-//                         else => {},
-//                     }
-//                 }
-//
-//                 self.pos += @intFromBool(t == .@"pub");
-//                 const decl = try self.parseTopLevelDecl();
-//                 if (decl) |d| {
-//                     if (field_state == .seen) field_state = .{ .end = d };
-//                     try self.scratch.append(self.alloc, d);
-//                 }
-//                 trailing = self.tokenKind(self.pos - 1) == .semicolon;
-//             },
-//             .eof, .r_brace => {
-//                 // todo : if theres a doc comment,
-//                 //  emit a warning that it has nothing to attach to
-//                 //  (this will only be needed when we support comments fully)
-//                 break;
-//             },
-//             else => {
-//                 // todo : this, although it may not be needed.
-//                 //  Zig uses it for parsing C-style containers, which we wont
-//                 //  need, but ill need to look more into it
-//                 //  before making a decision.
-//             }
-//         }
-//     }
-//
-//     const items = self.scratch.items[scratch_top..];
-//
-//     if (items.len <= 2) {
-//         return Members {
-//             .len = items.len,
-//             .data = .{ .opt_node_opt_node = .{
-//                 if (items.len >= 1) Ast.OptionalNodeIndex.fromOptional(items[0])
-//                 else Ast.OptionalNodeIndex.none,
-//                 if (items.len >= 2) Ast.OptionalNodeIndex.fromOptional(items[1])
-//                 else Ast.OptionalNodeIndex.none,
-//             }},
-//             .trailing = trailing,
-//         };
-//     }
-//     return Members {
-//         .len = items.len,
-//         .data = .{ .extra_range = try self.listToRange(items) },
-//         .trailing = trailing,
-//     };
-// }
-//
-// // todo : this function should also be recoverable, if it errors out the parser
-// //  should search for the next container member to try and parse, that way we
-// //  can yield multiple errors if needed
-// fn parseTopLevelDecl(self: *Self) ParseError!?Ast.NodeIndex {
-//     // keywords like `inline`
-//     const modifier_token = self.next();
-//     var expect_fn: bool = false;
-//
-//     switch(self.tokenKind(modifier_token)) {
-//         .@"inline" => expect_fn = true,
-//         else => self.pos -= 1,
-//     }
-//
-//     const opt_fn_proto = try self.parseFnProto();
-//     if (opt_fn_proto) |fn_proto| {
-//         switch(self.tokenKind(self.pos)) {
-//             .l_brace => {
-//                 const fn_decl = try self.reserveNode(.decl_fn);
-//                 errdefer self.unreserveNode(fn_decl);
-//
-//                 const body = try self.parseExpr();
-//                 return self.setNode(fn_decl, .{
-//                     .kind = .decl_fn,
-//                     .main_token = self.nodeMainToken(fn_proto),
-//                     .data = .{ .node_node = .{
-//                         fn_proto,
-//                         body,
-//                     }}
-//                 });
-//             },
-//             else => {
-//                 // todo : emit warning that we expected  {
-//                 return null;
-//             }
-//         }
-//     }
-//
-//     if (expect_fn) return error.ExpectedFn;
-//
-//     // todo : try to parse a top level constant decl,
-//     //  by this point it is the only thing we can expect
-//
-//     return error.ExpectedPubItem;
-// }
-//
-// /// parse a function signature
-// fn parseFnProto(self: *Self) ParseError!?Ast.NodeIndex {
-//     const fn_token = self.consume(.@"fn") orelse return null;
-//
-//     const proto_index = try self.reserveNode(.fn_proto);
-//     errdefer self.unreserveNode(proto_index);
-//
-//     _ = self.consume(.identifier);
-//
-//     // todo parse params
-//
-//     _ = self.consume(.bang); // consume the bang for fallible functions
-//
-//     // todo : parse return type expr
-//
-//     // todo : parse the fn proto into its appropriate proto kind.
-//     return error.OutOfMemory;
-// }
-//
-// /// parse a top level const decl statement
-// fn parseGlobalDecl(self: *Self) ParseError!?Ast.NodeIndex {
-//      _ = self;
-//     // todo : parse the const
-//     return error.OutOfMemory;
-// }
-//
-// fn parseExpr(self: *Self) ParseError!Ast.NodeIndex {
-//     _ = self;
-//     // todo check for expr and dispatch, if we see a block we treat it as such,
-//     //  otherwise parse with precedence climbing.
-//     return error.OutOfMemory;
-// }
-//
-// /// parse a container expr,
-// ///
-// /// ex.
-// /// ```
-// /// struct { ... }
-// /// enum { ... }
-// /// union { ... }
-// /// trait { ... }
-// /// ```
-// fn parseContainer(self: *Self) ParseError!void {
-//     const main_token = self.pos;
-//     switch (self.tokenKind(main_token)) {
-//         .@"struct", .@"union", .@"enum", .trait => {}, // todo : add union keyword
-//         else => return error.InvalidContainerType,
-//     }
-//
-//     _ = try self.consume(.l_brace);
-//     _ = try self.parseContainerMembers();
-//     _ = try self.consume(.r_brace);
-//     // todo : maybe we expect a semicolon, but if we have syntax like
-//     // const T = struct { ... };
-//     // then it makes more sense for the cont decl parser to expect the semicolon.
-// }
 
 /// return the next token to parse
-pub fn next(p: *Parser) Token {
+fn next(p: *Parser) Token {
     const res = p.tokens[p.pos];
     p.pos += 1;
     return res;
 }
 
-pub fn consume(p: *Parser, kind: Token.Kind) ?Token {
+fn peek(p: *Parser) Token {
+    return p.tokens[p.pos];
+}
+
+/// advance the parser until the next decl
+fn findNextDecl(p: *Parser) void {
+    while (true) {
+        switch (p.peek().kind) {
+            // todo : this top arm might not be needed
+            .eof, .@"fn", .@"pub", .let => return,
+            .r_brace => { p.pos += 1; return; },
+            else => p.pos += 1,
+        }
+    }
+}
+
+fn consume(p: *Parser, kind: Token.Kind) ?Token {
     return if (p.tokens[p.pos].kind == kind) p.next() else null;
 }
 
@@ -214,20 +55,29 @@ pub fn parseRoot(p: *Parser) ![]const *Ast.Stmt {
     return p.parseContainerMembers();
 }
 
-pub fn parseContainerMembers(p: *Parser) ![]const *Ast.Stmt {
+fn parseContainerMembers(p: *Parser) ![]const *Ast.Stmt {
+    var members = try std.ArrayList(*Ast.Stmt).initCapacity(p.alloc, 0);
+
+    // consume until end of file or r_brace is encountered. an r_brace
+    // should signal the end of the container as any braces not corresponding
+    // are expected to be consumed by parseContainerMember
+
+    return members.toOwnedSlice(p.alloc);
+}
+
+fn parseContainerMember(p: *Parser) ![]const *Ast.Stmt {
+    const is_pub = p.consume(.@"pub") != null;
     // state machine over next token:
     // ident -> Field
     // fn -> fnDecl
-    // pub -> PubItem
     // let -> LetStmt
     // ... other stuff I cant think of
     // else -> error : unexpected token, find start of next decl, return error
     switch (p.tokens[p.pos].kind) {
         .identifier => {},
-        .@"pub" => {},
         .@"fn" => {},
         .let => {},
-        else => {},
+        else => return if (is_pub) error.ExpectedPubItem else error.UnexpectedToken,
     }
-    return error.ExpectedEof;
 }
+
