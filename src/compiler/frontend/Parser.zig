@@ -14,14 +14,21 @@ pos: usize = 0,
 //  anything else that may help the compiler to generate a helpful message
 errors: std.ArrayList(ParseError),
 
-pub const ParseError = error {
+pub const ParseError = union(enum) {
+    UnexpectedToken: Token,
+    ExpectedEof: Token,
+    ExpectedFn: Token,
+    ExpectedPubItem: Token,
+    InvalidContainerType: Token,
+};
+
+const Error = error {
     UnexpectedToken,
     ExpectedEof,
     ExpectedFn,
     ExpectedPubItem,
     InvalidContainerType,
 };
-
 
 /// return the next token to parse
 fn next(p: *Parser) Token {
@@ -38,7 +45,7 @@ fn peek(p: *Parser) Token {
 fn findNextDecl(p: *Parser) void {
     while (true) {
         switch (p.peek().kind) {
-            // todo : this top arm might not be needed
+            // todo : this top arm may not be needed (except for the eof case)
             .eof, .@"fn", .@"pub", .let => return,
             .r_brace => { p.pos += 1; return; },
             else => p.pos += 1,
@@ -50,48 +57,79 @@ fn consume(p: *Parser, kind: Token.Kind) ?Token {
     return if (p.tokens[p.pos].kind == kind) p.next() else null;
 }
 
+fn reportError(p: *Parser, err: Error) void {
+    const pe = switch (err) {
+        error.UnexpectedToken => ParseError { .UnexpectedToken = p.peek() },
+        error.ExpectedEof => ParseError { .ExpectedEof = p.peek() },
+        error.ExpectedFn => ParseError { .ExpectedFn = p.peek() },
+        error.ExpectedPubItem => ParseError { .ExpectedPubItem = p.peek() },
+        error.InvalidContainerType => ParseError { .InvalidContainerType = p.peek() },
+    };
+    p.errors.append(p.alloc, pe) catch unreachable;
+}
+
 /// parse a file from the root, and return all top level nodes
 pub fn parseRoot(p: *Parser) ![]const *Ast.Stmt {
     return p.parseContainerMembers();
 }
 
-fn parseContainerMembers(p: *Parser) ![]const *Ast.Stmt {
-    var members = try std.ArrayList(*Ast.Stmt).initCapacity(p.alloc, 0);
+fn parseContainerMembers(p: *Parser) []const *Ast.Stmt {
+    var members = std.ArrayList(*Ast.Stmt).initCapacity(p.alloc, 0) catch unreachable;
 
-    // consume until end of file or r_brace is encountered. an r_brace
-    // should signal the end of the container as any braces not corresponding
-    // are expected to be consumed by parseContainerMember
+    while (p.peek().kind != .r_brace and p.peek().kind != .eof) {
+        const member = p.parseContainerMember() catch |err| {
+            p.reportError(err);
+            // todo : instead of breaking, skip to next decl and continue
+            break;
+        };
+        members.append(p.alloc, member) catch unreachable;
+    }
 
-    return members.toOwnedSlice(p.alloc);
+    return members.toOwnedSlice(p.alloc) catch unreachable;
 }
 
-fn parseContainerMember(p: *Parser) ![]const *Ast.Stmt {
+fn parseContainerMember(p: *Parser) Error!*Ast.Stmt {
     const is_pub = p.consume(.@"pub") != null;
-    // state machine over next token:
-    // ident -> Field
-    // fn -> fnDecl
-    // let -> LetStmt
-    // ... other stuff I cant think of
-    // else -> error : unexpected token, find start of next decl, return error
-    switch (p.tokens[p.pos].kind) {
-        .identifier => {},
-        .@"fn" => {},
-        .let => {},
-        else => return if (is_pub) error.ExpectedPubItem else error.UnexpectedToken,
-    }
+
+    const item = try switch (p.tokens[p.pos].kind) {
+        .identifier => p.parseField(),
+        .@"fn" => p.parseFn(),
+        .let => p.parseLet(),
+        else => if (is_pub) error.ExpectedPubItem else error.UnexpectedToken,
+    };
+
+    return if (is_pub) Ast.Stmt.create(p.alloc, .{.pub_item = item}) else item;
 }
 
 fn parseField(p: *Parser) !*Ast.Stmt {
     _ = p;
+    // identifier
+    // expect colon
+    // Expr
+    // expect comma (unless next token is eof or '}')
     return error.ExpectedEof;
 }
 
 fn parseLet(p: *Parser) !*Ast.Stmt {
     _ = p;
+    // expect let
+    // optional mut
+    // optional colon
+    // if colon is given: Expr
+    // expect equal
+    // Expr
     return error.ExpectedEof;
 }
 
 fn parseFn(p: *Parser) !*Ast.Stmt {
     _ = p;
+    // expect fn
+    // expect ident
+    // expect lparen
+    // param list
+    // expect rparen
+    // return type expr (if next token is '{' default to void)
+    // expect '='
+    // Expr
     return error.ExpectedEof;
 }

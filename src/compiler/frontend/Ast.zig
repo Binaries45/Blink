@@ -36,6 +36,12 @@ pub const Stmt = union(enum) {
     const FieldStmt = struct {
         // todo
     };
+
+    pub fn create(alloc: std.mem.Allocator, val: Stmt) *Stmt {
+        const ptr = alloc.create(Stmt) catch unreachable;
+        ptr.* = val;
+        return ptr;
+    }
 };
 
 /// an expression node of the `Ast`
@@ -148,7 +154,18 @@ pub const Expr = union(enum) {
     const BlockExpr = struct {
         // todo
     };
+
+    pub fn create(alloc: std.mem.Allocator, val: Expr) *Expr {
+        const ptr = alloc.create(Expr) catch unreachable;
+        ptr.* = val;
+        return ptr;
+    }
 };
+
+pub fn deinit(ast: *Ast, alloc: std.mem.Allocator) void {
+    alloc.free(ast.errors);
+    alloc.free(ast.root);
+}
 
 /// parse an ast from the given source
 pub fn parse(alloc: std.mem.Allocator, src: [:0]const u8) !Ast {
@@ -166,7 +183,7 @@ pub fn parse(alloc: std.mem.Allocator, src: [:0]const u8) !Ast {
     }
 
     const token_slice = try tokens.toOwnedSlice(alloc);
-    errdefer alloc.free(token_slice);
+    defer alloc.free(token_slice);
 
     return parseTokens(alloc, src, token_slice);
 }
