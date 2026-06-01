@@ -15,6 +15,7 @@ pub const Stmt = union(enum) {
     let: LetStmt,
     let_mut: LetMutStmt,
     fn_decl: FnStmt,
+    field: FieldStmt,
     /// an expression used as a statement
     expr: *Expr,
     /// a public item declaration, can be a constant, or a function
@@ -29,6 +30,10 @@ pub const Stmt = union(enum) {
     };
 
     const FnStmt = struct {
+        // todo
+    };
+
+    const FieldStmt = struct {
         // todo
     };
 };

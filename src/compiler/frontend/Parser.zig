@@ -81,3 +81,17 @@ fn parseContainerMember(p: *Parser) ![]const *Ast.Stmt {
     }
 }
 
+fn parseField(p: *Parser) !*Ast.Stmt {
+    _ = p;
+    return error.ExpectedEof;
+}
+
+fn parseLet(p: *Parser) !*Ast.Stmt {
+    _ = p;
+    return error.ExpectedEof;
+}
+
+fn parseFn(p: *Parser) !*Ast.Stmt {
+    _ = p;
+    return error.ExpectedEof;
+}
