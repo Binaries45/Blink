@@ -4,6 +4,7 @@ const Token = @import("compiler/frontend/Token.zig");
 const Lexer = @import("compiler/frontend/Lexer.zig");
 const Parser = @import("compiler/frontend/Parser.zig");
 const Ast = @import("compiler/frontend/Ast.zig");
+const Render = @import("compiler/frontend/AstRender.zig");
 
 const Compiler = @This();
 
@@ -26,7 +27,7 @@ pub fn compile(alloc: std.mem.Allocator, proc: Process) !void {
     // tokenize & parse the file
     var ast = try Ast.parse(alloc, content);
     defer ast.deinit(alloc);
-    std.debug.print("{any}\n", .{ast.errors});
+    Render.renderErrors(&ast, content);
 
     // semantic analysis
 

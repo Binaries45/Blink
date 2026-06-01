@@ -11,7 +11,7 @@ pub fn main() !void {
     defer args.deinit();
 
     const proc = try cli.parseArgs(&args);
-    std.debug.print("{f}\n", .{proc});
+    // std.debug.print("{f}\n", .{proc});
 
     try Compiler.compile(alloc, proc);
 }

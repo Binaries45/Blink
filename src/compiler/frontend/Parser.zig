@@ -20,6 +20,7 @@ pub const ParseError = union(enum) {
     ExpectedFn: Token,
     ExpectedPubItem: Token,
     InvalidContainerType: Token,
+    ExpectedIdentifier: Token,
 };
 
 const Error = error {
@@ -28,6 +29,7 @@ const Error = error {
     ExpectedFn,
     ExpectedPubItem,
     InvalidContainerType,
+    ExpectedIdentifier,
 };
 
 /// return the next token to parse
@@ -64,6 +66,7 @@ fn reportError(p: *Parser, err: Error) void {
         error.ExpectedFn => ParseError { .ExpectedFn = p.peek() },
         error.ExpectedPubItem => ParseError { .ExpectedPubItem = p.peek() },
         error.InvalidContainerType => ParseError { .InvalidContainerType = p.peek() },
+        error.ExpectedIdentifier => ParseError { .ExpectedIdentifier = p.peek() },
     };
     p.errors.append(p.alloc, pe) catch unreachable;
 }
@@ -102,23 +105,46 @@ fn parseContainerMember(p: *Parser) Error!*Ast.Stmt {
 }
 
 fn parseField(p: *Parser) !*Ast.Stmt {
-    _ = p;
-    // identifier
-    // expect colon
-    // Expr
-    // expect comma (unless next token is eof or '}')
-    return error.ExpectedEof;
+    const name = p.consume(.identifier) orelse return error.ExpectedIdentifier;
+    _ = p.consume(.colon) orelse return error.UnexpectedToken;
+    const expr = try p.parseExpr();
+    if (p.peek().kind != .r_brace and p.peek().kind != .eof) {
+        _ = p.consume(.comma) orelse return error.UnexpectedToken;
+    }
+
+    return Ast.Stmt.create(p.alloc, .{.field = .{
+        .name = name,
+        .type_expr = expr,
+    }});
 }
 
 fn parseLet(p: *Parser) !*Ast.Stmt {
-    _ = p;
-    // expect let
-    // optional mut
-    // optional colon
-    // if colon is given: Expr
-    // expect equal
-    // Expr
-    return error.ExpectedEof;
+    _ = p.consume(.let) orelse return error.UnexpectedToken;
+    const mutable = if (p.peek().kind == .mut) blk: {
+        _ = p.next();
+        break :blk true;
+    } else false;
+
+    const name = p.consume(.identifier) orelse return error.ExpectedIdentifier;
+
+    const type_expr = if (p.peek().kind == .colon) blk: {
+        _ = p.next();
+        break :blk try p.parseExpr();
+    } else null;
+
+    _ = p.consume(.equal) orelse return error.UnexpectedToken;
+
+    const value = try p.parseExpr();
+
+    return if (mutable) Ast.Stmt.create(p.alloc, .{ .let_mut = .{
+        .name = name,
+        .type_expr = type_expr,
+        .value_expr = value,
+    }}) else Ast.Stmt.create(p.alloc, .{ .let = .{
+        .name = name,
+        .type_expr = type_expr,
+        .value_expr = value,
+    }});
 }
 
 fn parseFn(p: *Parser) !*Ast.Stmt {
@@ -131,5 +157,10 @@ fn parseFn(p: *Parser) !*Ast.Stmt {
     // return type expr (if next token is '{' default to void)
     // expect '='
     // Expr
+    return error.ExpectedEof;
+}
+
+fn parseExpr(p: *Parser) !*Ast.Expr {
+    _ = p;
     return error.ExpectedEof;
 }

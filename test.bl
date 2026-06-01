@@ -1,4 +1,4 @@
-const pi = 3.141592653;
-const tau = 2 * pi;
+let pi = 3.141592653;
+let tau = 2 * pi;
 
 fn main() = {}

@@ -22,11 +22,15 @@ pub const Stmt = union(enum) {
     pub_item: *Stmt,
 
     const LetStmt = struct {
-        // todo
+        name: Token,
+        type_expr: ?*Expr,
+        value_expr: *Expr,
     };
 
     const LetMutStmt = struct {
-        // todo
+        name: Token,
+        type_expr: ?*Expr,
+        value_expr: *Expr,
     };
 
     const FnStmt = struct {
@@ -34,7 +38,8 @@ pub const Stmt = union(enum) {
     };
 
     const FieldStmt = struct {
-        // todo
+        name: Token,
+        type_expr: *Expr,
     };
 
     pub fn create(alloc: std.mem.Allocator, val: Stmt) *Stmt {
