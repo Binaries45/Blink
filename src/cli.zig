@@ -1,8 +1,11 @@
 const std = @import("std");
 
 pub const ProcKind = enum {
+    /// compile to an executable
     build,
+    /// compile to an executable and run
     run,
+    /// compile to an executable and run only tests
     @"test",
 };
 

@@ -16,6 +16,7 @@ pub const Stmt = union(enum) {
     let_mut: LetMutStmt,
     fn_decl: FnStmt,
     field: FieldStmt,
+    param: ParamStmt,
     /// an expression used as a statement
     expr: *Expr,
     /// a public item declaration, can be a constant, or a function
@@ -34,10 +35,18 @@ pub const Stmt = union(enum) {
     };
 
     const FnStmt = struct {
-        // todo
+        name: Token,
+        params: []const *Stmt,
+        ret_ty: *Expr,
+        body: *Expr,
     };
 
     const FieldStmt = struct {
+        name: Token,
+        type_expr: *Expr,
+    };
+
+    const ParamStmt = struct {
         name: Token,
         type_expr: *Expr,
     };
@@ -169,6 +178,7 @@ pub const Expr = union(enum) {
 
 pub fn deinit(ast: *Ast, alloc: std.mem.Allocator) void {
     alloc.free(ast.errors);
+    // todo : this does need to recursively free all nodes
     alloc.free(ast.root);
 }
 

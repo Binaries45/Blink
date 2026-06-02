@@ -49,7 +49,7 @@ pub const Kind = enum {
     pipe,
     pipe_pipe,
     pipe_equal,
-    carat,
+    caret,
     carat_equal,
     tilde,
     tilde_equal,
@@ -70,9 +70,11 @@ pub const Kind = enum {
 
     // container tokens (their raw values matter)
     identifier,
+    builtin,
     string,
     char,
-    numeric,
+    int_literal,
+    float_literal,
 
     // keywords
     true,
@@ -256,7 +258,7 @@ pub fn lexeme(kind: Token.Kind) ?[]const u8 {
         .pipe => "|",
         .pipe_pipe => "||",
         .pipe_equal => "|=",
-        .carat => "^",
+        .caret => "^",
         .carat_equal => "^=",
         .tilde => "~",
         .tilde_equal => "~=",
@@ -277,7 +279,9 @@ pub fn lexeme(kind: Token.Kind) ?[]const u8 {
         .char,
         .eof,
         .identifier,
-        .numeric,
+        .builtin,
+        .int_literal,
+        .float_literal,
         .string,
         .unknown => null,
     };

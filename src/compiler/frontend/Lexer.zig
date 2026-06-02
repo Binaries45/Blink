@@ -37,6 +37,7 @@ const State = enum {
     range,
 
     identifier,
+    builtin,
     string,
     char,
     int,
@@ -96,7 +97,7 @@ pub fn next(self: *Self) Token {
                 continue :state .identifier;
             },
             '0'...'9' => {
-                result.kind = .numeric;
+                result.kind = .int_literal;
                 self.pos += 1;
                 continue :state .int;
             },
@@ -175,7 +176,17 @@ pub fn next(self: *Self) Token {
                 else => continue :state .invalid,
             }
         },
-        .at => unreachable,
+        .at => {
+            self.pos += 1;
+            switch (self.buffer[self.pos]) {
+                0, '\n' => result.kind = .unknown,
+                'a'...'z', 'A'...'Z', '_' => {
+                    result.kind = .builtin;
+                    continue :state .builtin;
+                },
+                else => continue :state .invalid,
+            }
+        },
         .pound => unreachable,
         .dollar => unreachable,
         .identifier => {
@@ -188,6 +199,13 @@ pub fn next(self: *Self) Token {
                         result.kind = kword;
                     }
                 },
+            }
+        },
+        .builtin => {
+            self.pos += 1;
+            switch(self.buffer[self.pos]) {
+                'a'...'z', 'A'...'Z', '_', '0'...'9' => continue :state .builtin,
+                else => {},
             }
         },
         .string => {
@@ -323,7 +341,7 @@ pub fn next(self: *Self) Token {
                     result.kind = .carat_equal;
                     self.pos += 1;
                 },
-                else => result.kind = .carat,
+                else => result.kind = .caret,
             }
         },
         .tilde => {
@@ -400,8 +418,14 @@ pub fn next(self: *Self) Token {
         },
         .int => {
             switch (self.buffer[self.pos]) {
-                '.' => continue :state .int_period,
-                'e' => continue :state .floatExp,
+                '.' => {
+                    result.kind = .float_literal;
+                    continue :state .int_period;
+                },
+                'e' => {
+                    result.kind = .float_literal;
+                    continue :state .floatExp;
+                },
                 '0'...'9' => {
                     self.pos += 1;
                     continue :state .int;

@@ -9,9 +9,6 @@ alloc: std.mem.Allocator,
 src: []const u8,
 tokens: []const Token,
 pos: usize = 0,
-// todo : maybe make ParseError a type that can hold onto more context,
-//  like the offending token, and a tag representing error type, alongside
-//  anything else that may help the compiler to generate a helpful message
 errors: std.ArrayList(ParseError),
 
 pub const ParseError = union(enum) {
@@ -21,6 +18,7 @@ pub const ParseError = union(enum) {
     ExpectedPubItem: Token,
     InvalidContainerType: Token,
     ExpectedIdentifier: Token,
+    ExpectedSemicolon: Token,
 };
 
 const Error = error {
@@ -30,6 +28,7 @@ const Error = error {
     ExpectedPubItem,
     InvalidContainerType,
     ExpectedIdentifier,
+    ExpectedSemicolon,
 };
 
 /// return the next token to parse
@@ -67,6 +66,7 @@ fn reportError(p: *Parser, err: Error) void {
         error.ExpectedPubItem => ParseError { .ExpectedPubItem = p.peek() },
         error.InvalidContainerType => ParseError { .InvalidContainerType = p.peek() },
         error.ExpectedIdentifier => ParseError { .ExpectedIdentifier = p.peek() },
+        error.ExpectedSemicolon => ParseError { .ExpectedSemicolon = p.peek() },
     };
     p.errors.append(p.alloc, pe) catch unreachable;
 }
@@ -133,8 +133,8 @@ fn parseLet(p: *Parser) !*Ast.Stmt {
     } else null;
 
     _ = p.consume(.equal) orelse return error.UnexpectedToken;
-
     const value = try p.parseExpr();
+    _ = p.consume(.semicolon) orelse return error.ExpectedSemicolon;
 
     return if (mutable) Ast.Stmt.create(p.alloc, .{ .let_mut = .{
         .name = name,
@@ -147,20 +147,108 @@ fn parseLet(p: *Parser) !*Ast.Stmt {
     }});
 }
 
-fn parseFn(p: *Parser) !*Ast.Stmt {
+fn parseParamList(p: *Parser) ![]const *Ast.Stmt {
     _ = p;
-    // expect fn
-    // expect ident
-    // expect lparen
-    // param list
-    // expect rparen
-    // return type expr (if next token is '{' default to void)
-    // expect '='
-    // Expr
     return error.ExpectedEof;
 }
 
+fn parseFn(p: *Parser) !*Ast.Stmt {
+    _ = p.consume(.@"fn") orelse return error.ExpectedFn;
+    const name = p.consume(.identifier) orelse return error.ExpectedIdentifier;
+    _ = p.consume(.l_paren) orelse return error.ExpectedFn;
+    const params = try p.parseParamList();
+    _ = p.consume(.r_paren) orelse return error.ExpectedFn;
+    const ret_ty = try p.parseExpr();
+    _ = p.consume(.equal) orelse return error.UnexpectedToken;
+    const body = try p.parseExpr();
+
+    return Ast.Stmt.create(p.alloc, .{.fn_decl = .{
+        .name = name,
+        .params = params,
+        .ret_ty = ret_ty,
+        .body = body,
+    }});
+}
+
 fn parseExpr(p: *Parser) !*Ast.Expr {
-    _ = p;
-    return error.ExpectedEof;
+    // switch on next tokens kind
+    // numeric -> math expr
+    // operator -> math or type Expr (type expr if '*' otherwise math)
+    // keyword -> appropriate expression type
+    // ident -> ambiguous, could be type or normal expr
+    // builtin -> builtin fn call (we dont have these yet)
+    // else -> Unexpected Token
+    return switch (p.peek().kind) {
+        .int_literal, .float_literal => p.parsePrecedence(0),
+        .identifier => error.ExpectedEof,
+        else => error.UnexpectedToken,
+    };
+}
+
+/// returns the precedence of a binary operator,
+/// or null if the given token kind is not a valid operator
+fn binaryPrecedence(kind: Token.Kind) ?u8 {
+    return switch (kind) {
+        .equal => 1,
+        .pipe_pipe => 2,
+        .ampersand_ampersand => 3,
+        .pipe => 4,
+        .caret => 5,
+        .ampersand => 6,
+        .equal_equal, .bang_equal => 7,
+        .l_angled, .r_angled, .l_angled_equal, .r_angled_equal => 8,
+        .l_angled_angled, .r_angled_angled => 9,
+        .plus, .minus => 10,
+        .asterisk, .slash, .percent => 11,
+        // todo : since member access is its own expr,
+        // we may want to rework this, or we can just have an if clause
+        // for the .period kind
+        .period => 99,
+        else => null,
+    };
+}
+
+fn primary(p: *Parser) Error!*Ast.Expr {
+    const tok = p.next();
+    // todo : handle unary ops
+    return state: switch(tok.kind) {
+        .int_literal => Ast.Expr.create(p.alloc, .{ .literal_int = tok }),
+        .float_literal => Ast.Expr.create(p.alloc, .{ .literal_float = tok }),
+        .l_paren => {
+            const expr = p.parsePrecedence(0);
+            _ = p.consume(.r_paren) orelse return error.UnexpectedToken;
+            break :state expr;
+        },
+        .identifier => {
+            // todo : detect function calls
+            break :state Ast.Expr.create(p.alloc, .{ .ident = tok });
+        },
+        else => error.UnexpectedToken,
+    };
+}
+
+fn parsePrecedence(p: *Parser, min_prec: u8) !*Ast.Expr {
+    var lhs = try p.primary();
+
+    while(true) {
+        const current = p.peek();
+        const prec = binaryPrecedence(current.kind) orelse break;
+        if (prec < min_prec) break;
+        _ = p.next();
+
+        lhs = if (current.kind == .period) blk: {
+            break :blk Ast.Expr.create(p.alloc,.{ .access = .{
+                .container = lhs,
+                .member = p.consume(.identifier) orelse return error.ExpectedIdentifier,
+            }});
+        } else blk: {
+            break :blk Ast.Expr.create(p.alloc, .{ .binary = .{
+                .op = current,
+                .left = lhs,
+                .right = try p.parsePrecedence(prec),
+            }});
+        };
+    }
+
+    return lhs;
 }

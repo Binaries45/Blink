@@ -3,7 +3,8 @@ const cli = @import("cli.zig");
 const Compiler = @import("compiler.zig");
 
 pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}).init;
+    // var gpa = std.heap.GeneralPurposeAllocator(.{}).init;
+    var gpa = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer _ = gpa.deinit();
     const alloc = gpa.allocator();
 
@@ -11,7 +12,6 @@ pub fn main() !void {
     defer args.deinit();
 
     const proc = try cli.parseArgs(&args);
-    // std.debug.print("{f}\n", .{proc});
-
+    // std.debug.print("{f}\n", .{proc}
     try Compiler.compile(alloc, proc);
 }
