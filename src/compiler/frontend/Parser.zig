@@ -11,14 +11,9 @@ tokens: []const Token,
 pos: usize = 0,
 errors: std.ArrayList(ParseError),
 
-pub const ParseError = union(enum) {
-    UnexpectedToken: Token,
-    ExpectedEof: Token,
-    ExpectedFn: Token,
-    ExpectedPubItem: Token,
-    InvalidContainerType: Token,
-    ExpectedIdentifier: Token,
-    ExpectedSemicolon: Token,
+pub const ParseError = struct {
+    err: Error,
+    token: Token,
 };
 
 const Error = error {
@@ -59,15 +54,7 @@ fn consume(p: *Parser, kind: Token.Kind) ?Token {
 }
 
 fn reportError(p: *Parser, err: Error) void {
-    const pe = switch (err) {
-        error.UnexpectedToken => ParseError { .UnexpectedToken = p.peek() },
-        error.ExpectedEof => ParseError { .ExpectedEof = p.peek() },
-        error.ExpectedFn => ParseError { .ExpectedFn = p.peek() },
-        error.ExpectedPubItem => ParseError { .ExpectedPubItem = p.peek() },
-        error.InvalidContainerType => ParseError { .InvalidContainerType = p.peek() },
-        error.ExpectedIdentifier => ParseError { .ExpectedIdentifier = p.peek() },
-        error.ExpectedSemicolon => ParseError { .ExpectedSemicolon = p.peek() },
-    };
+    const pe = ParseError {.err = err, .token = p.peek()};
     p.errors.append(p.alloc, pe) catch unreachable;
 }
 
@@ -94,31 +81,31 @@ fn parseContainerMembers(p: *Parser) []const *Ast.Stmt {
 fn parseContainerMember(p: *Parser) Error!*Ast.Stmt {
     const is_pub = p.consume(.@"pub") != null;
 
-    const item = try switch (p.tokens[p.pos].kind) {
-        .identifier => p.parseField(),
-        .@"fn" => p.parseFn(),
-        .let => p.parseLet(),
-        else => if (is_pub) error.ExpectedPubItem else error.UnexpectedToken,
+    const item = switch (p.tokens[p.pos].kind) {
+        .identifier => try p.parseField(),
+        .@"fn" => try p.parseFn(),
+        .let => try p.parseLet(),
+        else => return if (is_pub) error.ExpectedPubItem else error.UnexpectedToken,
     };
 
     return if (is_pub) Ast.Stmt.create(p.alloc, .{.pub_item = item}) else item;
 }
 
-fn parseField(p: *Parser) !*Ast.Stmt {
+fn parseField(p: *Parser) Error!*Ast.Stmt {
     const name = p.consume(.identifier) orelse return error.ExpectedIdentifier;
     _ = p.consume(.colon) orelse return error.UnexpectedToken;
-    const expr = try p.parseExpr();
+    const ty = try p.parseTypeExpr();
     if (p.peek().kind != .r_brace and p.peek().kind != .eof) {
         _ = p.consume(.comma) orelse return error.UnexpectedToken;
     }
 
     return Ast.Stmt.create(p.alloc, .{.field = .{
         .name = name,
-        .type_expr = expr,
+        .type_expr = ty,
     }});
 }
 
-fn parseLet(p: *Parser) !*Ast.Stmt {
+fn parseLet(p: *Parser) Error!*Ast.Stmt {
     _ = p.consume(.let) orelse return error.UnexpectedToken;
     const mutable = if (p.peek().kind == .mut) blk: {
         _ = p.next();
@@ -129,7 +116,7 @@ fn parseLet(p: *Parser) !*Ast.Stmt {
 
     const type_expr = if (p.peek().kind == .colon) blk: {
         _ = p.next();
-        break :blk try p.parseExpr();
+        break :blk try p.parseTypeExpr();
     } else null;
 
     _ = p.consume(.equal) orelse return error.UnexpectedToken;
@@ -147,18 +134,32 @@ fn parseLet(p: *Parser) !*Ast.Stmt {
     }});
 }
 
-fn parseParamList(p: *Parser) ![]const *Ast.Stmt {
-    _ = p;
-    return error.ExpectedEof;
+fn parseParamList(p: *Parser) Error![]const *Ast.Stmt {
+    var params = std.ArrayList(*Ast.Stmt).initCapacity(p.alloc, 0) catch unreachable;
+    defer params.deinit(p.alloc);
+
+    // while next token is not ')'
+    while(p.peek().kind != .r_paren) {
+        const name = p.consume(.identifier) orelse return error.ExpectedIdentifier;
+        _ = p.consume(.colon);
+        const ty = try p.parseTypeExpr();
+        params.append(p.alloc, Ast.Stmt.create(p.alloc, .{ .param = .{
+            .name = name,
+            .type_expr = ty,
+        }})) catch unreachable;
+        if (p.peek().kind == .comma) _ = p.next();
+    }
+
+    return params.toOwnedSlice(p.alloc) catch unreachable;
 }
 
-fn parseFn(p: *Parser) !*Ast.Stmt {
+fn parseFn(p: *Parser) Error!*Ast.Stmt {
     _ = p.consume(.@"fn") orelse return error.ExpectedFn;
     const name = p.consume(.identifier) orelse return error.ExpectedIdentifier;
     _ = p.consume(.l_paren) orelse return error.ExpectedFn;
     const params = try p.parseParamList();
     _ = p.consume(.r_paren) orelse return error.ExpectedFn;
-    const ret_ty = try p.parseExpr();
+    const ret_ty = try p.parseTypeExpr();
     _ = p.consume(.equal) orelse return error.UnexpectedToken;
     const body = try p.parseExpr();
 
@@ -170,7 +171,7 @@ fn parseFn(p: *Parser) !*Ast.Stmt {
     }});
 }
 
-fn parseExpr(p: *Parser) !*Ast.Expr {
+fn parseExpr(p: *Parser) Error!*Ast.Expr {
     // switch on next tokens kind
     // numeric -> math expr
     // operator -> math or type Expr (type expr if '*' otherwise math)
@@ -179,8 +180,18 @@ fn parseExpr(p: *Parser) !*Ast.Expr {
     // builtin -> builtin fn call (we dont have these yet)
     // else -> Unexpected Token
     return switch (p.peek().kind) {
-        .int_literal, .float_literal => p.parsePrecedence(0),
-        .identifier => error.ExpectedEof,
+        .int_literal,
+        .float_literal,
+        .identifier,
+        .asterisk,
+        .minus,
+        .plus,
+        .l_paren => p.parsePrecedence(0),
+
+        .@"struct",
+        .@"enum",
+        .@"union" => p.parseTypeExpr(),
+
         else => error.UnexpectedToken,
     };
 }
@@ -203,14 +214,39 @@ fn binaryPrecedence(kind: Token.Kind) ?u8 {
         // todo : since member access is its own expr,
         // we may want to rework this, or we can just have an if clause
         // for the .period kind
-        .period => 99,
+        .period => 255,
         else => null,
     };
 }
 
+fn unaryPrecedence(kind: Token.Kind) ?u8 {
+    return switch (kind) {
+        .plus,
+        .minus,
+        .asterisk,
+        .ampersand,
+        .bang,
+        .tilde => 12,
+        else => null,
+    };
+}
+
+fn parseFnCall(p: *Parser) Error!*Ast.Expr {
+    _ = p;
+    return error.ExpectedEof;
+}
+
 fn primary(p: *Parser) Error!*Ast.Expr {
     const tok = p.next();
-    // todo : handle unary ops
+
+    if(unaryPrecedence(tok.kind)) |_| {
+        return Ast.Expr.create(p.alloc, .{ .unary = .{
+            .op = tok,
+            .operand = try p.primary(),
+        }});
+    }
+
+    // todo : handle unary ops properly
     return state: switch(tok.kind) {
         .int_literal => Ast.Expr.create(p.alloc, .{ .literal_int = tok }),
         .float_literal => Ast.Expr.create(p.alloc, .{ .literal_float = tok }),
@@ -227,7 +263,7 @@ fn primary(p: *Parser) Error!*Ast.Expr {
     };
 }
 
-fn parsePrecedence(p: *Parser, min_prec: u8) !*Ast.Expr {
+fn parsePrecedence(p: *Parser, min_prec: u8) Error!*Ast.Expr {
     var lhs = try p.primary();
 
     while(true) {
@@ -251,4 +287,33 @@ fn parsePrecedence(p: *Parser, min_prec: u8) !*Ast.Expr {
     }
 
     return lhs;
+}
+
+fn parseTypeExpr(p: *Parser) Error!*Ast.Expr {
+    return state: switch(p.peek().kind) {
+        .question => Ast.Expr.create(p.alloc, .{ .unary = .{
+            .op = p.next(),
+            .operand = try p.parseTypeExpr(),
+        }}),
+        // todo : pointer modifiers like *const
+        .asterisk => Ast.Expr.create(p.alloc, .{ .unary = .{
+            .op = p.next(),
+            .operand = try p.parseTypeExpr(),
+        }}),
+        .identifier => {
+            // todo : comptime function call support
+            const tok = p.next();
+            var expr = Ast.Expr.create(p.alloc, .{ .ident = tok });
+            while(p.peek().kind == .period) {
+                _ = p.next();
+                if(p.peek().kind != .identifier) break :state error.ExpectedIdentifier;
+                expr = Ast.Expr.create(p.alloc, .{ .access = .{
+                    .container = expr,
+                    .member = p.next(),
+                }});
+            }
+            break :state expr;
+        },
+        else => error.UnexpectedToken,
+    };
 }

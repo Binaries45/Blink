@@ -1,3 +1,8 @@
 let pi = 3.141592653;
 let tau = 2 * pi;
 
+fn add(a: u32, b: u32) u32 = a + b
+
+fn main() void = {
+    let res = add(pi, tau);
+}

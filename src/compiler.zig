@@ -27,9 +27,11 @@ pub fn compile(alloc: std.mem.Allocator, proc: Process) !void {
     // tokenize & parse the file
     var ast = try Ast.parse(alloc, content);
     defer ast.deinit(alloc);
+
     if (ast.errors.len > 0) {
         Render.renderErrors(&ast, content);
-    } else Render.render(&ast, content);
+    }
+    Render.render(&ast, content);
 
     // semantic analysis
 

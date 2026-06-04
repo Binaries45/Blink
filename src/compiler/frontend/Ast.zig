@@ -166,7 +166,8 @@ pub const Expr = union(enum) {
     };
 
     const BlockExpr = struct {
-        // todo
+        // todo : label and any other stuff
+        content: []const *Stmt,
     };
 
     pub fn create(alloc: std.mem.Allocator, val: Expr) *Expr {

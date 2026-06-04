@@ -2,25 +2,58 @@ const std = @import("std");
 const Ast = @import("Ast.zig");
 const Token = @import("Token.zig");
 
+const TerminalColor = struct {
+    fn clear() void { std.debug.print("\x1b[37m", .{}); }
+    fn red() void { std.debug.print("\x1b[31m", .{}); }
+    fn green() void { std.debug.print("\x1b[32m", .{}); }
+    fn yellow() void { std.debug.print("\x1b[33m", .{}); }
+    fn blue() void { std.debug.print("\x1b[34m", .{}); }
+    fn magenta() void { std.debug.print("\x1b[35m", .{}); }
+};
+
+
+// todo : different colors for different types of statements / expressions
 /// render the Ast back as if it is source code
 pub fn render(ast: *Ast, src: [:0]const u8) void {
     for (ast.root) |node| renderStmt(node, src);
+    TerminalColor.clear();
 }
 
 fn renderStmt(stmt: *Ast.Stmt, src: [:0]const u8) void {
+    TerminalColor.red();
     switch(stmt.*) {
         .expr => |e| {
             renderExpr(e, src);
             std.debug.print(";\n", .{});
         },
         .field => |f| {
-            std.debug.print("{s}: ", .{src[f.name.start..f.name.end]});
+            TerminalColor.blue();
+            std.debug.print("{s}", .{src[f.name.start..f.name.end]});
+            TerminalColor.clear();
+            std.debug.print(": ", .{});
             renderExpr(f.type_expr, src);
             std.debug.print(",\n", .{});
         },
-        .fn_decl => {},
+        .fn_decl => |f| {
+            std.debug.print("fn ", .{});
+            TerminalColor.blue();
+            std.debug.print("{s}", .{src[f.name.start..f.name.end]});
+            TerminalColor.clear();
+            std.debug.print("(", .{});
+            for(f.params, 0..) |s, i| {
+                renderStmt(s, src);
+                if (i != f.params.len - 1) std.debug.print(", ", .{});
+            }
+            std.debug.print(") ", .{});
+            renderExpr(f.ret_ty, src);
+            std.debug.print(" = ", .{});
+            renderExpr(f.body, src);
+        },
         .let => |l| {
-            std.debug.print("let {s}", .{src[l.name.start..l.name.end]});
+            std.debug.print("let ", .{});
+            TerminalColor.blue();
+            std.debug.print("{s}", .{src[l.name.start..l.name.end]});
+            TerminalColor.clear();
             if (l.type_expr) |te| {
                 std.debug.print(": ", .{});
                 renderExpr(te, src);
@@ -29,8 +62,26 @@ fn renderStmt(stmt: *Ast.Stmt, src: [:0]const u8) void {
             renderExpr(l.value_expr, src);
             std.debug.print(";\n", .{});
         },
-        .let_mut => {},
-        .param => {},
+        .let_mut => |lm| {
+            std.debug.print("let mut ", .{});
+            TerminalColor.blue();
+            std.debug.print("{s}", .{src[lm.name.start..lm.name.end]});
+            TerminalColor.clear();
+            if (lm.type_expr) |te| {
+                std.debug.print(": ", .{});
+                renderExpr(te, src);
+            }
+            std.debug.print(" = ", .{});
+            renderExpr(lm.value_expr, src);
+            std.debug.print(";\n", .{});
+        },
+        .param => |p| {
+            TerminalColor.blue();
+            std.debug.print("{s}", .{src[p.name.start..p.name.end]});
+            TerminalColor.clear();
+            std.debug.print(": ", .{});
+            renderExpr(p.type_expr, src);
+        },
         .pub_item => {},
     }
 }
@@ -51,15 +102,30 @@ fn renderExpr(expr: *Ast.Expr, src: [:0]const u8) void {
         .block => {},
         .builtin_call => {},
         .call => {},
-        .ident => |i| std.debug.print("{s}", .{src[i.start..i.end]}),
-        .literal_bool => |b| if (b.kind == .true) {
-            std.debug.print("true", .{});
-        } else std.debug.print("false", .{}),
+        .ident => |i| {
+            TerminalColor.blue();
+            std.debug.print("{s}", .{src[i.start..i.end]});
+        },
+        .literal_bool => |b| {
+            TerminalColor.red();
+            if (b.kind == .true) {
+                std.debug.print("true", .{});
+            } else std.debug.print("false", .{});
+        },
         .literal_char => {},
         .literal_enum => {},
-        .literal_float => |f| std.debug.print("{s}", .{src[f.start..f.end]}),
-        .literal_int => |i| std.debug.print("{s}", .{src[i.start..i.end]}),
-        .literal_string => |s| std.debug.print("\"{s}\"", .{src[s.start..s.end]}),
+        .literal_float => |f| {
+            TerminalColor.green();
+            std.debug.print("{s}", .{src[f.start..f.end]});
+        },
+        .literal_int => |i| {
+            TerminalColor.green();
+            std.debug.print("{s}", .{src[i.start..i.end]});
+        },
+        .literal_string => |s| {
+            TerminalColor.green();
+            std.debug.print("\"{s}\"", .{src[s.start..s.end]});
+        },
         .literal_struct => {},
         .literal_trait => {},
         .literal_union => {},
@@ -68,32 +134,34 @@ fn renderExpr(expr: *Ast.Expr, src: [:0]const u8) void {
             renderExpr(u.operand, src);
         },
     }
+    TerminalColor.clear();
 }
 
+// todo : report error location and show the offending line with some helpful info
 /// render all errors in the Ast
 pub fn renderErrors(ast: *Ast, src: [:0]const u8) void {
     for (ast.errors) |err| {
-        switch (err) {
-            .ExpectedEof => |e| std.debug.print("Expected EOF got {s} '{s}'\n", .{
-                @tagName(e.kind) ,src[e.start..e.end]
+        switch (err.err) {
+            error.ExpectedEof => std.debug.print("Expected EOF got {s} '{s}'\n", .{
+                @tagName(err.token.kind) ,src[err.token.start..err.token.end]
             }),
-            .ExpectedFn => |e| std.debug.print("Expected 'fn' got {s} '{s}'\n", .{
-                @tagName(e.kind) ,src[e.start..e.end]
+            error.ExpectedFn => std.debug.print("Expected 'fn' got {s} '{s}'\n", .{
+                @tagName(err.token.kind) ,src[err.token.start..err.token.end]
             }),
-            .ExpectedIdentifier => |e| std.debug.print("Expected indetifier got {s} '{s}'\n", .{
-                @tagName(e.kind) ,src[e.start..e.end]
+            error.ExpectedIdentifier => std.debug.print("Expected indetifier got {s} '{s}'\n", .{
+                @tagName(err.token.kind) ,src[err.token.start..err.token.end]
             }),
-            .ExpectedPubItem => |e| std.debug.print("Expected pub item got {s} '{s}'\n", .{
-                @tagName(e.kind) ,src[e.start..e.end]
+            error.ExpectedPubItem => std.debug.print("Expected pub item got {s} '{s}'\n", .{
+                @tagName(err.token.kind) ,src[err.token.start..err.token.end]
             }),
-            .InvalidContainerType => |e| std.debug.print("{s} '{s}' is not a valid container type\n", .{
-                @tagName(e.kind) ,src[e.start..e.end]
+            error.InvalidContainerType => std.debug.print("{s} '{s}' is not a valid container type\n", .{
+                @tagName(err.token.kind) ,src[err.token.start..err.token.end]
             }),
-            .UnexpectedToken => |e| std.debug.print("Unexpected Token {s} '{s}'\n", .{
-                @tagName(e.kind) ,src[e.start..e.end]
+            error.UnexpectedToken => std.debug.print("Unexpected Token {s} '{s}'\n", .{
+                @tagName(err.token.kind) ,src[err.token.start..err.token.end]
             }),
-            .ExpectedSemicolon => |e| std.debug.print("Expected semicolon, got {s} '{s}'\n", .{
-                @tagName(e.kind) ,src[e.start..e.end]
+            error.ExpectedSemicolon => std.debug.print("Expected semicolon, got {s} '{s}'\n", .{
+                @tagName(err.token.kind) ,src[err.token.start..err.token.end]
             }),
         }
     }
