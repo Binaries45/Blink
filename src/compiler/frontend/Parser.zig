@@ -185,6 +185,25 @@ fn parseFn(p: *Parser) Error!*Ast.Stmt {
     }});
 }
 
+fn parseFnCall(p: *Parser) Error!*Ast.Expr {
+    const name = p.consume(.identifier) orelse return error.ExpectedIdentifier;
+    _ = p.consume(.l_paren);
+
+    // todo : parse args
+    var args = std.ArrayList(*Ast.Expr).initCapacity(p.alloc, 0) catch unreachable;
+    while (p.peek().kind != .r_paren) {
+        const expr = try p.parseExpr();
+        args.append(p.alloc, expr) catch unreachable;
+        if (p.peek().kind == .comma) _ = p.next();
+    }
+
+    _ = p.consume(.r_paren);
+    return Ast.Expr.create(p.alloc, .{ .call = .{
+        .name = name,
+        .args = args.toOwnedSlice(p.alloc) catch unreachable,
+    }});
+}
+
 fn parseExpr(p: *Parser) Error!*Ast.Expr {
     // switch on next tokens kind
     // numeric -> math expr
@@ -248,22 +267,8 @@ fn unaryPrecedence(kind: Token.Kind) ?u8 {
     };
 }
 
-fn parseFnCall(p: *Parser) Error!*Ast.Expr {
-    const name = p.consume(.identifier) orelse return error.ExpectedIdentifier;
-    _ = p.consume(.l_paren);
-
-    // todo : parse args
-    const args = undefined;
-
-    _ = p.consume(.r_paren);
-    return Ast.Expr.create(p.alloc, .{ .call = .{
-        .name = name,
-        .args = args,
-    }});
-}
-
 fn primary(p: *Parser) Error!*Ast.Expr {
-    if(unaryPrecedence(p.peek().kind)) |_| {
+    if (unaryPrecedence(p.peek().kind)) |_| {
         return Ast.Expr.create(p.alloc, .{ .unary = .{
             .op = p.next(),
             .operand = try p.primary(),
@@ -281,6 +286,7 @@ fn primary(p: *Parser) Error!*Ast.Expr {
         },
         .identifier => {
             // todo : detect function calls
+            if (p.tokens[p.pos + 1].kind == .l_paren) break :state p.parseFnCall();
             break :state Ast.Expr.create(p.alloc, .{ .ident = p.next() });
         },
         else => error.UnexpectedToken,

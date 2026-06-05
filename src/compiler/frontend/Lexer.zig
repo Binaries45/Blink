@@ -53,6 +53,7 @@ pub fn init(src: [:0]const u8) Self {
     };
 }
 
+// todo : skip past comments
 pub fn next(self: *Self) Token {
     var result: Token = .{
         .kind = undefined,

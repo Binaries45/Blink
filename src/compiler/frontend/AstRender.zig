@@ -104,7 +104,14 @@ fn renderExpr(expr: *Ast.Expr, src: [:0]const u8) void {
             std.debug.print("}}", .{});
         },
         .builtin_call => {},
-        .call => {},
+        .call => |c| {
+            std.debug.print("{s}(", .{src[c.name.start..c.name.end]});
+            for (c.args, 0..) |e, i| {
+                renderExpr(e, src);
+                if (i != c.args.len - 1) std.debug.print(", ", .{});
+            }
+            std.debug.print(")", .{});
+        },
         .ident => |i| {
             std.debug.print("{s}", .{src[i.start..i.end]});
         },
