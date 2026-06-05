@@ -86,7 +86,21 @@ fn renderStmt(stmt: *Ast.Stmt, src: [:0]const u8) void {
 fn renderExpr(expr: *Ast.Expr, src: [:0]const u8) void {
     switch(expr.*) {
         .@"for" => {},
-        .@"if" => {},
+        .@"if" => |i| {
+            TerminalColor.red();
+            std.debug.print("if ", .{});
+            TerminalColor.clear();
+            std.debug.print("(", .{});
+            renderExpr(i.clause, src);
+            std.debug.print(") ", .{});
+            renderExpr(i.then_body, src);
+            if (i.else_body) |e| {
+                TerminalColor.red();
+                std.debug.print(" else ", .{});
+                TerminalColor.clear();
+                renderExpr(e, src);
+            }
+        },
         .@"loop" => {},
         .@"switch" => {},
         .@"while" => {},

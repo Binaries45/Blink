@@ -146,7 +146,9 @@ pub const Expr = union(enum) {
     };
 
     const IfExpr = struct {
-        // todo
+        clause: *Expr,
+        then_body: *Expr,
+        else_body: ?*Expr,
     };
 
     const SwitchExpr = struct {

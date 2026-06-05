@@ -228,6 +228,10 @@ fn parseExpr(p: *Parser) Error!*Ast.Expr {
         // todo : builtin calls, block expressions, others
         .l_brace => p.parseBlock(),
 
+        .@"if" => p.parseIf(),
+
+        .true, .false => Ast.Expr.create(p.alloc, .{ .literal_bool = p.next() }),
+
         else => error.UnexpectedToken,
     };
 }
@@ -360,5 +364,26 @@ fn parseBlock(p: *Parser) Error!*Ast.Expr {
     _ = p.consume(.r_brace) orelse return Error.UnexpectedToken;
     return Ast.Expr.create(p.alloc, .{ .block = .{
         .content = statements.toOwnedSlice(p.alloc) catch unreachable
+    }});
+}
+
+fn parseIf(p: *Parser) Error!*Ast.Expr {
+    _ = p.consume(.@"if") orelse return error.UnexpectedToken;
+
+    _ = p.consume(.l_paren) orelse return error.UnexpectedToken;
+    const clause = try p.parseExpr();
+    _ = p.consume(.r_paren) orelse return error.UnexpectedToken;
+
+    const then_body = try p.parseExpr();
+
+    const else_body = if (p.peek().kind == .@"else") blk: {
+        _ = p.next();
+        break :blk try p.parseExpr();
+    } else null;
+
+    return Ast.Expr.create(p.alloc, .{ .@"if" = .{
+        .clause = clause,
+        .then_body = then_body,
+        .else_body = else_body,
     }});
 }

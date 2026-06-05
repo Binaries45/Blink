@@ -3,6 +3,6 @@ let tau = 2 * pi;
 
 fn add(a: u32, b: u32) u32 = a + b
 
-fn main() void = {
-    let res = add(pi, tau);
-}
+fn even(n: u32) bool = if (n % 2 == 0) true else false
+
+fn main() void = {}
