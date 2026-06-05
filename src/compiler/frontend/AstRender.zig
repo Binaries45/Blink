@@ -2,6 +2,8 @@ const std = @import("std");
 const Ast = @import("Ast.zig");
 const Token = @import("Token.zig");
 
+var depth: u16 = 0; // yuck
+
 const TerminalColor = struct {
     fn clear() void { std.debug.print("\x1b[37m", .{}); }
     fn red() void { std.debug.print("\x1b[31m", .{}); }
@@ -21,25 +23,22 @@ pub fn render(ast: *Ast, src: [:0]const u8) void {
 
 fn renderStmt(stmt: *Ast.Stmt, src: [:0]const u8) void {
     TerminalColor.red();
+    for (0..depth) |_| std.debug.print("  ", .{});
     switch(stmt.*) {
         .expr => |e| {
             renderExpr(e, src);
             std.debug.print(";\n", .{});
         },
         .field => |f| {
-            TerminalColor.blue();
-            std.debug.print("{s}", .{src[f.name.start..f.name.end]});
             TerminalColor.clear();
-            std.debug.print(": ", .{});
+            std.debug.print("{s}: ", .{src[f.name.start..f.name.end]});
             renderExpr(f.type_expr, src);
             std.debug.print(",\n", .{});
         },
         .fn_decl => |f| {
             std.debug.print("fn ", .{});
-            TerminalColor.blue();
-            std.debug.print("{s}", .{src[f.name.start..f.name.end]});
             TerminalColor.clear();
-            std.debug.print("(", .{});
+            std.debug.print("{s}(", .{src[f.name.start..f.name.end]});
             for(f.params, 0..) |s, i| {
                 renderStmt(s, src);
                 if (i != f.params.len - 1) std.debug.print(", ", .{});
@@ -48,12 +47,12 @@ fn renderStmt(stmt: *Ast.Stmt, src: [:0]const u8) void {
             renderExpr(f.ret_ty, src);
             std.debug.print(" = ", .{});
             renderExpr(f.body, src);
+            std.debug.print("\n", .{});
         },
         .let => |l| {
             std.debug.print("let ", .{});
-            TerminalColor.blue();
-            std.debug.print("{s}", .{src[l.name.start..l.name.end]});
             TerminalColor.clear();
+            std.debug.print("{s}", .{src[l.name.start..l.name.end]});
             if (l.type_expr) |te| {
                 std.debug.print(": ", .{});
                 renderExpr(te, src);
@@ -64,9 +63,8 @@ fn renderStmt(stmt: *Ast.Stmt, src: [:0]const u8) void {
         },
         .let_mut => |lm| {
             std.debug.print("let mut ", .{});
-            TerminalColor.blue();
-            std.debug.print("{s}", .{src[lm.name.start..lm.name.end]});
             TerminalColor.clear();
+            std.debug.print("{s}", .{src[lm.name.start..lm.name.end]});
             if (lm.type_expr) |te| {
                 std.debug.print(": ", .{});
                 renderExpr(te, src);
@@ -76,9 +74,8 @@ fn renderStmt(stmt: *Ast.Stmt, src: [:0]const u8) void {
             std.debug.print(";\n", .{});
         },
         .param => |p| {
-            TerminalColor.blue();
-            std.debug.print("{s}", .{src[p.name.start..p.name.end]});
             TerminalColor.clear();
+            std.debug.print("{s}", .{src[p.name.start..p.name.end]});
             std.debug.print(": ", .{});
             renderExpr(p.type_expr, src);
         },
@@ -99,11 +96,16 @@ fn renderExpr(expr: *Ast.Expr, src: [:0]const u8) void {
             std.debug.print(" {s} ", .{ Token.lexeme(b.op.kind) orelse "ERR" });
             renderExpr(b.right, src);
         },
-        .block => {},
+        .block => |b| {
+            std.debug.print("{{\n", .{});
+            depth += 1;
+            for(b.content) |s| renderStmt(s, src);
+            depth -= 1;
+            std.debug.print("}}", .{});
+        },
         .builtin_call => {},
         .call => {},
         .ident => |i| {
-            TerminalColor.blue();
             std.debug.print("{s}", .{src[i.start..i.end]});
         },
         .literal_bool => |b| {
