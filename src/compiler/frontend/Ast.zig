@@ -98,8 +98,10 @@ pub const Expr = union(enum) {
     @"switch": SwitchExpr,
     @"for": ForExpr,
     @"while": WhileExpr,
-    @"loop": LoopExpr,
+    loop: LoopExpr,
     block: BlockExpr,
+    @"break": BreakExpr,
+    @"continue": ContinueExpr,
 
     const Unary = struct {
         op: Token,
@@ -156,20 +158,33 @@ pub const Expr = union(enum) {
     };
 
     const ForExpr = struct {
-        // todo
+        capture: *Expr,
+        iterable: *Expr,
+        body: *Expr,
     };
 
     const WhileExpr = struct {
-        // todo
+        clause: *Expr,
+        body: *Expr,
     };
 
     const LoopExpr = struct {
-        // todo
+        body: *Expr,
     };
 
     const BlockExpr = struct {
         // todo : label and any other stuff
         content: []const *Stmt,
+    };
+
+    const BreakExpr = struct {
+        label: ?Token,
+        value: ?*Expr,
+    };
+
+    const ContinueExpr = struct {
+        label: ?Token,
+        value: ?*Expr,
     };
 
     pub fn create(alloc: std.mem.Allocator, val: Expr) *Expr {

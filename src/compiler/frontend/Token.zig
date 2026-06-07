@@ -98,6 +98,9 @@ pub const Kind = enum {
     loop,
     impl,
     @"defer",
+    in,
+    @"break",
+    @"continue",
 };
 
 pub const longest_symbol = blk: {
@@ -191,6 +194,9 @@ pub const keyword_map = std.StaticStringMap(Kind).initComptime(.{
     // rust style impl blocks.
     .{"impl", .impl},
     .{"defer", .@"defer"},
+    .{"in", .in},
+    .{"break", .@"break"},
+    .{"continue", .@"continue"},
 });
 
 pub fn getKeyword(bytes: []const u8) ?Kind {
@@ -200,7 +206,9 @@ pub fn getKeyword(bytes: []const u8) ?Kind {
 pub fn lexeme(kind: Token.Kind) ?[]const u8 {
     return switch (kind) {
         // keywords
+        .@"break",
         .@"const",
+        .@"continue",
         .@"defer",
         .@"else",
         .@"enum",
@@ -215,6 +223,7 @@ pub fn lexeme(kind: Token.Kind) ?[]const u8 {
         .@"while",
         .false,
         .impl,
+        .in,
         .let,
         .loop,
         .mut,

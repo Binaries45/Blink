@@ -26,6 +26,7 @@ fn renderStmt(stmt: *Ast.Stmt, src: [:0]const u8) void {
     for (0..depth) |_| std.debug.print("  ", .{});
     switch(stmt.*) {
         .expr => |e| {
+            TerminalColor.clear();
             renderExpr(e, src);
             std.debug.print(";\n", .{});
         },
@@ -85,7 +86,39 @@ fn renderStmt(stmt: *Ast.Stmt, src: [:0]const u8) void {
 
 fn renderExpr(expr: *Ast.Expr, src: [:0]const u8) void {
     switch(expr.*) {
-        .@"for" => {},
+        .@"break" => |b| {
+            TerminalColor.red();
+            std.debug.print("break ", .{});
+            TerminalColor.clear();
+            if (b.label) |l| {
+                std.debug.print("{s} ", .{src[l.start..l.end]});
+            }
+            if (b.value) |v| {
+                renderExpr(v, src);
+            }
+        },
+        .@"continue" => |c| {
+            TerminalColor.red();
+            std.debug.print("continue ", .{});
+            TerminalColor.clear();
+            if (c.label) |l| {
+                std.debug.print("{s} ", .{src[l.start..l.end]});
+            }
+            if (c.value) |v| {
+                renderExpr(v, src);
+            }
+        },
+        .@"for" => |f| {
+            TerminalColor.red();
+            std.debug.print("for ", .{});
+            TerminalColor.clear();
+            renderExpr(f.capture, src);
+            TerminalColor.red();
+            std.debug.print(" in ", .{});
+            TerminalColor.clear();
+            renderExpr(f.iterable, src);
+            renderExpr(f.body, src);
+        },
         .@"if" => |i| {
             TerminalColor.red();
             std.debug.print("if ", .{});
@@ -101,9 +134,22 @@ fn renderExpr(expr: *Ast.Expr, src: [:0]const u8) void {
                 renderExpr(e, src);
             }
         },
-        .@"loop" => {},
+        .loop => |l| {
+            TerminalColor.red();
+            std.debug.print("loop ", .{});
+            TerminalColor.clear();
+            renderExpr(l.body, src);
+        },
         .@"switch" => {},
-        .@"while" => {},
+        .@"while" => |w| {
+            TerminalColor.red();
+            std.debug.print("while ", .{});
+            TerminalColor.clear();
+            std.debug.print("(", .{});
+            renderExpr(w.clause, src);
+            std.debug.print(") ", .{});
+            renderExpr(w.body, src);
+        },
         .access => {},
         .binary => |b| {
             renderExpr(b.left, src);
@@ -115,6 +161,7 @@ fn renderExpr(expr: *Ast.Expr, src: [:0]const u8) void {
             depth += 1;
             for(b.content) |s| renderStmt(s, src);
             depth -= 1;
+            for (0..depth) |_| std.debug.print("  ", .{});
             std.debug.print("}}", .{});
         },
         .builtin_call => {},

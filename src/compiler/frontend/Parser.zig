@@ -229,6 +229,11 @@ fn parseExpr(p: *Parser) Error!*Ast.Expr {
         .l_brace => p.parseBlock(),
 
         .@"if" => p.parseIf(),
+        .loop => p.parseLoop(),
+        .@"while" => p.parseWhile(),
+        .@"for" => p.parseFor(),
+        .@"break" => p.parseBreak(),
+        .@"continue" => p.parseContinue(),
 
         .true, .false => Ast.Expr.create(p.alloc, .{ .literal_bool = p.next() }),
 
@@ -240,17 +245,22 @@ fn parseExpr(p: *Parser) Error!*Ast.Expr {
 /// or null if the given token kind is not a valid operator
 fn binaryPrecedence(kind: Token.Kind) ?u8 {
     return switch (kind) {
-        .equal => 1,
-        .pipe_pipe => 2,
-        .ampersand_ampersand => 3,
-        .pipe => 4,
-        .caret => 5,
-        .ampersand => 6,
-        .equal_equal, .bang_equal => 7,
-        .l_angled, .r_angled, .l_angled_equal, .r_angled_equal => 8,
-        .l_angled_angled, .r_angled_angled => 9,
-        .plus, .minus => 10,
-        .asterisk, .slash, .percent => 11,
+        .equal, .ampersand_equal, .asterisk_equal,
+        .carat_equal, .l_angled_angled_equal,
+        .minus_equal, .percent_equal, .pipe_equal,
+        .plus_equal, .r_angled_angled_equal, .slash_equal,
+        .tilde_equal => 1,
+        .range, .range_inclusive => 2,
+        .pipe_pipe => 3,
+        .ampersand_ampersand => 4,
+        .pipe => 5,
+        .caret => 6,
+        .ampersand => 7,
+        .equal_equal, .bang_equal => 8,
+        .l_angled, .r_angled, .l_angled_equal, .r_angled_equal => 9,
+        .l_angled_angled, .r_angled_angled => 10,
+        .plus, .minus => 11,
+        .asterisk, .slash, .percent => 12,
         // todo : since member access is its own expr,
         // we may want to rework this, or we can just have an if clause
         // for the .period kind
@@ -266,7 +276,7 @@ fn unaryPrecedence(kind: Token.Kind) ?u8 {
         .asterisk,
         .ampersand,
         .bang,
-        .tilde => 12,
+        .tilde => 13,
         else => null,
     };
 }
@@ -385,5 +395,67 @@ fn parseIf(p: *Parser) Error!*Ast.Expr {
         .clause = clause,
         .then_body = then_body,
         .else_body = else_body,
+    }});
+}
+
+fn parseLoop(p: *Parser) Error!*Ast.Expr {
+    _ = p.consume(.loop) orelse return error.UnexpectedToken;
+    const body = try p.parseExpr();
+    return Ast.Expr.create(p.alloc, .{ .loop = .{
+        .body = body,
+    }});
+}
+
+fn parseWhile(p: *Parser) Error!*Ast.Expr {
+    _ = p.consume(.@"while") orelse return error.UnexpectedToken;
+
+    _ = p.consume(.l_paren) orelse return error.UnexpectedToken;
+    const clause = try p.parseExpr();
+    _ = p.consume(.r_paren) orelse return error.UnexpectedToken;
+
+    const body = try p.parseExpr();
+
+    return Ast.Expr.create(p.alloc, .{ .@"while" = .{
+        .clause = clause,
+        .body = body,
+    }});
+}
+
+fn parseFor(p: *Parser) Error!*Ast.Expr {
+    _ = p.consume(.@"for") orelse return error.UnexpectedToken;
+    const capture = try p.parseExpr();
+    _ = p.consume(.in) orelse return error.UnexpectedToken;
+    _ = p.consume(.l_paren) orelse return error.UnexpectedToken;
+    const iterable = try p.parseExpr();
+    _ = p.consume(.r_paren) orelse return error.UnexpectedToken;
+
+    const body = try p.parseExpr();
+
+    return Ast.Expr.create(p.alloc, .{ .@"for" = .{
+        .capture = capture,
+        .iterable = iterable,
+        .body = body,
+    }});
+}
+
+// todo for break and cont. we can have a label without needing a value,
+//  so this should be re-thought
+fn parseBreak(p: *Parser) Error!*Ast.Expr {
+    _ = p.consume(.@"break") orelse return error.UnexpectedToken;
+    const label = if (p.peek().kind == .identifier) p.next() else null;
+    const value = if (label) |_| try p.parseExpr() else null;
+    return Ast.Expr.create(p.alloc, .{ .@"break" = .{
+        .label = label,
+        .value = value,
+    }});
+}
+
+fn parseContinue(p: *Parser) Error!*Ast.Expr {
+    _ = p.consume(.@"continue") orelse return error.UnexpectedToken;
+    const label = if (p.peek().kind == .identifier) p.next() else null;
+    const value = if (label) |_| try p.parseExpr() else null;
+    return Ast.Expr.create(p.alloc, .{ .@"break" = .{
+        .label = label,
+        .value = value,
     }});
 }

@@ -5,4 +5,16 @@ fn add(a: u32, b: u32) u32 = a + b
 
 fn even(n: u32) bool = if (n % 2 == 0) true else false
 
+fn loops_test(n: u32) u32 = {
+    let mut res = 0;
+    loop {
+        res += n;
+        if (res == n * 3) break;
+    };
+
+    while (res < n * 10) res += n;
+
+    for _ in (0..n) res += n;
+}
+
 fn main() void = {}
