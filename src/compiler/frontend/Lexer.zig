@@ -132,7 +132,7 @@ pub fn next(self: *Self) Token {
                 self.pos += 1;
             },
             ']' => {
-                result.kind = .r_brace;
+                result.kind = .r_bracket;
                 self.pos += 1;
             },
             '{' => {

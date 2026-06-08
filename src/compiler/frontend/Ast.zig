@@ -77,6 +77,8 @@ pub const Expr = union(enum) {
     builtin_call: BuiltinCall,
     /// member access via the '.' operator
     access: Access,
+    /// a type expression for an array of some elements
+    array_of: ArrayOf,
 
     // types
     /// `struct { ... }`
@@ -131,16 +133,20 @@ pub const Expr = union(enum) {
         member: Token,
     };
 
+    const ArrayOf = struct {
+        elem: *Expr,
+    };
+
     const StructLit = struct {
-        // todo
+        members: []const *Stmt,
     };
 
     const EnumLit = struct {
-        // todo
+        members: []const *Stmt,
     };
 
     const UnionLit = struct {
-        // todo
+        members: []const *Stmt,
     };
 
     const TraitLit = struct {

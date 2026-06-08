@@ -3,6 +3,7 @@ const Ast = @import("Ast.zig");
 const Token = @import("Token.zig");
 
 var depth: u16 = 0; // yuck
+var in_pub: bool = false; // yuck x2
 
 const TerminalColor = struct {
     fn clear() void { std.debug.print("\x1b[37m", .{}); }
@@ -23,7 +24,7 @@ pub fn render(ast: *Ast, src: [:0]const u8) void {
 
 fn renderStmt(stmt: *Ast.Stmt, src: [:0]const u8) void {
     TerminalColor.red();
-    for (0..depth) |_| std.debug.print("  ", .{});
+    if (!in_pub) for (0..depth) |_| std.debug.print("  ", .{});
     switch(stmt.*) {
         .expr => |e| {
             TerminalColor.clear();
@@ -80,11 +81,17 @@ fn renderStmt(stmt: *Ast.Stmt, src: [:0]const u8) void {
             std.debug.print(": ", .{});
             renderExpr(p.type_expr, src);
         },
-        .pub_item => {},
+        .pub_item => |p| {
+            in_pub = true;
+            std.debug.print("pub ", .{});
+            renderStmt(p, src);
+            in_pub = false;
+        },
     }
 }
 
 fn renderExpr(expr: *Ast.Expr, src: [:0]const u8) void {
+    in_pub = false;
     switch(expr.*) {
         .@"break" => |b| {
             TerminalColor.red();
@@ -116,7 +123,9 @@ fn renderExpr(expr: *Ast.Expr, src: [:0]const u8) void {
             TerminalColor.red();
             std.debug.print(" in ", .{});
             TerminalColor.clear();
+            std.debug.print("(", .{});
             renderExpr(f.iterable, src);
+            std.debug.print(") ", .{});
             renderExpr(f.body, src);
         },
         .@"if" => |i| {
@@ -134,12 +143,6 @@ fn renderExpr(expr: *Ast.Expr, src: [:0]const u8) void {
                 renderExpr(e, src);
             }
         },
-        .loop => |l| {
-            TerminalColor.red();
-            std.debug.print("loop ", .{});
-            TerminalColor.clear();
-            renderExpr(l.body, src);
-        },
         .@"switch" => {},
         .@"while" => |w| {
             TerminalColor.red();
@@ -150,7 +153,14 @@ fn renderExpr(expr: *Ast.Expr, src: [:0]const u8) void {
             std.debug.print(") ", .{});
             renderExpr(w.body, src);
         },
-        .access => {},
+        .access => |a| {
+            renderExpr(a.container, src);
+            std.debug.print(".{s}", .{src[a.member.start..a.member.end]});
+        },
+        .array_of => |a| {
+            std.debug.print("[] ", .{});
+            renderExpr(a.elem, src);
+        },
         .binary => |b| {
             renderExpr(b.left, src);
             std.debug.print(" {s} ", .{ Token.lexeme(b.op.kind) orelse "ERR" });
@@ -159,7 +169,7 @@ fn renderExpr(expr: *Ast.Expr, src: [:0]const u8) void {
         .block => |b| {
             std.debug.print("{{\n", .{});
             depth += 1;
-            for(b.content) |s| renderStmt(s, src);
+            for (b.content) |s| renderStmt(s, src);
             depth -= 1;
             for (0..depth) |_| std.debug.print("  ", .{});
             std.debug.print("}}", .{});
@@ -196,9 +206,24 @@ fn renderExpr(expr: *Ast.Expr, src: [:0]const u8) void {
             TerminalColor.green();
             std.debug.print("\"{s}\"", .{src[s.start..s.end]});
         },
-        .literal_struct => {},
+        .literal_struct => |s| {
+            TerminalColor.red();
+            std.debug.print("struct ", .{});
+            TerminalColor.clear();
+            std.debug.print("{{\n", .{});
+            depth += 1;
+            for (s.members) |m| renderStmt(m, src);
+            depth -= 1;
+            std.debug.print("}}", .{});
+        },
         .literal_trait => {},
         .literal_union => {},
+        .loop => |l| {
+            TerminalColor.red();
+            std.debug.print("loop ", .{});
+            TerminalColor.clear();
+            renderExpr(l.body, src);
+        },
         .unary => |u| {
             std.debug.print("{s}", .{ Token.lexeme(u.op.kind) orelse "ERR" });
             renderExpr(u.operand, src);
@@ -231,6 +256,9 @@ pub fn renderErrors(ast: *Ast, src: [:0]const u8) void {
                 @tagName(err.token.kind) ,src[err.token.start..err.token.end]
             }),
             error.ExpectedSemicolon => std.debug.print("Expected semicolon, got {s} '{s}'\n", .{
+                @tagName(err.token.kind) ,src[err.token.start..err.token.end]
+            }),
+            error.ExpectedTypeExpression => std.debug.print("Expected type expression, got {s} '{s}'\n", .{
                 @tagName(err.token.kind) ,src[err.token.start..err.token.end]
             }),
         }

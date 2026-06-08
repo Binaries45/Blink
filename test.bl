@@ -1,7 +1,14 @@
 let pi = 3.141592653;
 let tau = 2 * pi;
 
-fn add(a: u32, b: u32) u32 = a + b
+let Person = struct {
+    name: []u8,
+    age: u8,
+
+    pub fn getAge(p: Person) u8 = p.age
+};
+
+fn add(a: u32, b: u32) u32 = a + b;
 
 fn even(n: u32) bool = if (n % 2 == 0) true else false
 

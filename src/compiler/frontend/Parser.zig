@@ -24,6 +24,7 @@ const Error = error {
     InvalidContainerType,
     ExpectedIdentifier,
     ExpectedSemicolon,
+    ExpectedTypeExpression,
 };
 
 /// return the next token to parse
@@ -39,12 +40,37 @@ fn peek(p: *Parser) Token {
 
 /// advance the parser until the next decl
 fn findNextDecl(p: *Parser) void {
+    var level: u32 = 0;
     while (true) {
-        switch (p.peek().kind) {
-            // todo : this top arm may not be needed (except for the eof case)
-            .eof, .@"fn", .@"pub", .let => return,
-            .r_brace => { p.pos += 1; return; },
-            else => p.pos += 1,
+        const tok = p.next();
+        switch(tok.kind) {
+            .@"pub", .@"fn", .let => {
+                if (level == 0) {
+                    p.pos -= 1;
+                    return;
+                }
+            },
+            .identifier => {
+                if (p.peek().kind == .comma and level == 0) {
+                    p.pos -= 1;
+                    return;
+                }
+            },
+            .comma, .semicolon => if (level == 0) return,
+            .l_paren, .l_bracket, .l_brace => level += 1,
+            .r_paren, .r_bracket => if (level != 0) { level -= 1; },
+            .r_brace => {
+                if (level == 0) {
+                    p.pos -= 1;
+                    return;
+                }
+                level -= 1;
+            },
+            .eof => {
+                p.pos -= 1;
+                return;
+            },
+            else => {},
         }
     }
 }
@@ -69,8 +95,9 @@ fn parseContainerMembers(p: *Parser) []const *Ast.Stmt {
     while (p.peek().kind != .r_brace and p.peek().kind != .eof) {
         const member = p.parseContainerMember() catch |err| {
             p.reportError(err);
-            // todo : instead of breaking, skip to next decl and continue
-            break;
+            p.findNextDecl();
+            continue;
+            // break;
         };
         members.append(p.alloc, member) catch unreachable;
     }
@@ -344,6 +371,15 @@ fn parseTypeExpr(p: *Parser) Error!*Ast.Expr {
             .op = p.next(),
             .operand = try p.parseTypeExpr(),
         }}),
+        .l_bracket => {
+            _ = p.next();
+            // todo : check for size or other modifiers
+            _ = p.consume(.r_bracket) orelse return error.UnexpectedToken;
+            const elem = try p.parseTypeExpr();
+            return Ast.Expr.create(p.alloc, .{ .array_of = .{
+                .elem = elem,
+            }});
+        },
         .identifier => {
             // todo : comptime function call support
             const tok = p.next();
@@ -358,6 +394,9 @@ fn parseTypeExpr(p: *Parser) Error!*Ast.Expr {
             }
             break :state expr;
         },
+        .@"struct" => p.parseStruct(),
+        .@"enum" => p.parseEnum(),
+        .@"union" => p.parseUnion(),
         else => error.UnexpectedToken,
     };
 }
@@ -457,5 +496,41 @@ fn parseContinue(p: *Parser) Error!*Ast.Expr {
     return Ast.Expr.create(p.alloc, .{ .@"break" = .{
         .label = label,
         .value = value,
+    }});
+}
+
+fn parseStruct(p: *Parser) Error!*Ast.Expr {
+    _ = p.consume(.@"struct") orelse return error.ExpectedTypeExpression;
+    _ = p.consume(.l_brace) orelse return error.UnexpectedToken;
+
+    const members = p.parseContainerMembers();
+
+    _ = p.consume(.r_brace) orelse return error.UnexpectedToken;
+    return Ast.Expr.create(p.alloc, .{ .literal_struct = .{
+        .members = members,
+    }});
+}
+
+fn parseEnum(p: *Parser) Error!*Ast.Expr {
+    _ = p.consume(.@"enum") orelse return error.ExpectedTypeExpression;
+    _ = p.consume(.l_brace) orelse return error.UnexpectedToken;
+
+    const members = p.parseContainerMembers();
+
+    _ = p.consume(.r_brace) orelse return error.UnexpectedToken;
+    return Ast.Expr.create(p.alloc, .{ .literal_enum = .{
+        .members = members,
+    }});
+}
+
+fn parseUnion(p: *Parser) Error!*Ast.Expr {
+    _ = p.consume(.@"union") orelse return error.ExpectedTypeExpression;
+    _ = p.consume(.l_brace) orelse return error.UnexpectedToken;
+
+    const members = p.parseContainerMembers();
+
+    _ = p.consume(.r_brace) orelse return error.UnexpectedToken;
+    return Ast.Expr.create(p.alloc, .{ .literal_union = .{
+        .members = members,
     }});
 }
