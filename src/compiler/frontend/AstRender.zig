@@ -22,9 +22,11 @@ pub fn render(ast: *Ast, src: [:0]const u8) void {
     TerminalColor.clear();
 }
 
+fn indent() void { for (0..depth) |_| std.debug.print("    ", .{}); }
+
 fn renderStmt(stmt: *Ast.Stmt, src: [:0]const u8) void {
     TerminalColor.red();
-    if (!in_pub) for (0..depth) |_| std.debug.print("  ", .{});
+    if (!in_pub) indent();
     switch(stmt.*) {
         .expr => |e| {
             TerminalColor.clear();
@@ -33,8 +35,16 @@ fn renderStmt(stmt: *Ast.Stmt, src: [:0]const u8) void {
         },
         .field => |f| {
             TerminalColor.clear();
-            std.debug.print("{s}: ", .{src[f.name.start..f.name.end]});
-            renderExpr(f.type_expr, src);
+            std.debug.print("{s}", .{src[f.name.start..f.name.end]});
+            if (f.type_expr) |ty| {
+                std.debug.print(": ", .{});
+                renderExpr(ty, src);
+            }
+            if (f.default) |d| {
+                std.debug.print(" = ", .{});
+                renderExpr(d, src);
+            }
+
             std.debug.print(",\n", .{});
         },
         .fn_decl => |f| {
@@ -171,7 +181,7 @@ fn renderExpr(expr: *Ast.Expr, src: [:0]const u8) void {
             depth += 1;
             for (b.content) |s| renderStmt(s, src);
             depth -= 1;
-            for (0..depth) |_| std.debug.print("  ", .{});
+            indent();
             std.debug.print("}}", .{});
         },
         .builtin_call => {},
@@ -193,7 +203,16 @@ fn renderExpr(expr: *Ast.Expr, src: [:0]const u8) void {
             } else std.debug.print("false", .{});
         },
         .literal_char => {},
-        .literal_enum => {},
+        .literal_enum => |e| {
+            TerminalColor.red();
+            std.debug.print("enum  ", .{});
+            TerminalColor.clear();
+            std.debug.print("{{\n", .{});
+            depth += 1;
+            for (e.members) |m| renderStmt(m, src);
+            depth -= 1;
+            std.debug.print("}}", .{});
+        },
         .literal_float => |f| {
             TerminalColor.green();
             std.debug.print("{s}", .{src[f.start..f.end]});

@@ -43,7 +43,8 @@ pub const Stmt = union(enum) {
 
     const FieldStmt = struct {
         name: Token,
-        type_expr: *Expr,
+        type_expr: ?*Expr,
+        default: ?*Expr,
     };
 
     const ParamStmt = struct {

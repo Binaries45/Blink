@@ -135,8 +135,16 @@ fn parseStatement(p: *Parser) Error!*Ast.Stmt {
 
 fn parseField(p: *Parser) Error!*Ast.Stmt {
     const name = p.consume(.identifier) orelse return error.ExpectedIdentifier;
-    _ = p.consume(.colon) orelse return error.UnexpectedToken;
-    const ty = try p.parseTypeExpr();
+    const ty = if (p.peek().kind == .colon) blk: {
+        _ = p.consume(.colon) orelse return error.UnexpectedToken;
+        break :blk try p.parseTypeExpr();
+    } else null;
+
+    const default = if (p.peek().kind == .equal) blk: {
+        _ = p.consume(.equal) orelse return error.UnexpectedToken;
+        break :blk try p.parseExpr();
+    } else null;
+
     if (p.peek().kind != .r_brace and p.peek().kind != .eof) {
         _ = p.consume(.comma) orelse return error.UnexpectedToken;
     }
@@ -144,6 +152,7 @@ fn parseField(p: *Parser) Error!*Ast.Stmt {
     return Ast.Stmt.create(p.alloc, .{.field = .{
         .name = name,
         .type_expr = ty,
+        .default = default,
     }});
 }
 
@@ -515,6 +524,8 @@ fn parseEnum(p: *Parser) Error!*Ast.Expr {
     _ = p.consume(.@"enum") orelse return error.ExpectedTypeExpression;
     _ = p.consume(.l_brace) orelse return error.UnexpectedToken;
 
+    // todo : allow parseContainerMembers to support
+    //  enum & union content by parsing variants
     const members = p.parseContainerMembers();
 
     _ = p.consume(.r_brace) orelse return error.UnexpectedToken;
