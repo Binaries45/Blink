@@ -403,9 +403,9 @@ fn parseTypeExpr(p: *Parser) Error!*Ast.Expr {
             }
             break :state expr;
         },
-        .@"struct" => p.parseStruct(),
-        .@"enum" => p.parseEnum(),
-        .@"union" => p.parseUnion(),
+        .@"struct",
+        .@"enum",
+        .@"union", => p.parseTypeDecl(),
         else => error.UnexpectedToken,
     };
 }
@@ -508,40 +508,24 @@ fn parseContinue(p: *Parser) Error!*Ast.Expr {
     }});
 }
 
-fn parseStruct(p: *Parser) Error!*Ast.Expr {
-    _ = p.consume(.@"struct") orelse return error.ExpectedTypeExpression;
+fn parseTypeDecl(p: *Parser) Error!*Ast.Expr {
+    const token = p.consume(.@"struct") orelse
+        p.consume(.@"enum") orelse
+        p.consume(.@"union") orelse return error.UnexpectedToken ;
+
+    // todo : support for things like packed structs,
+    //  and enums with backing integers, as well as tagged unions decls
+
     _ = p.consume(.l_brace) orelse return error.UnexpectedToken;
-
     const members = p.parseContainerMembers();
-
     _ = p.consume(.r_brace) orelse return error.UnexpectedToken;
-    return Ast.Expr.create(p.alloc, .{ .literal_struct = .{
-        .members = members,
-    }});
-}
 
-fn parseEnum(p: *Parser) Error!*Ast.Expr {
-    _ = p.consume(.@"enum") orelse return error.ExpectedTypeExpression;
-    _ = p.consume(.l_brace) orelse return error.UnexpectedToken;
+    const decl = switch(token.kind) {
+        .@"struct" => Ast.Expr {.literal_struct = .{ .members = members }},
+        .@"enum" => Ast.Expr {.literal_enum = .{ .members = members }},
+        .@"union" => Ast.Expr {.literal_union = .{ .members = members }},
+        else => unreachable,
+    };
 
-    // todo : allow parseContainerMembers to support
-    //  enum & union content by parsing variants
-    const members = p.parseContainerMembers();
-
-    _ = p.consume(.r_brace) orelse return error.UnexpectedToken;
-    return Ast.Expr.create(p.alloc, .{ .literal_enum = .{
-        .members = members,
-    }});
-}
-
-fn parseUnion(p: *Parser) Error!*Ast.Expr {
-    _ = p.consume(.@"union") orelse return error.ExpectedTypeExpression;
-    _ = p.consume(.l_brace) orelse return error.UnexpectedToken;
-
-    const members = p.parseContainerMembers();
-
-    _ = p.consume(.r_brace) orelse return error.UnexpectedToken;
-    return Ast.Expr.create(p.alloc, .{ .literal_union = .{
-        .members = members,
-    }});
+    return Ast.Expr.create(p.alloc, decl);
 }
