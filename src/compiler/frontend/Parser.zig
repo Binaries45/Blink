@@ -509,9 +509,10 @@ fn parseContinue(p: *Parser) Error!*Ast.Expr {
 }
 
 fn parseTypeDecl(p: *Parser) Error!*Ast.Expr {
-    const token = p.consume(.@"struct") orelse
+    const kind =
+        (p.consume(.@"struct") orelse
         p.consume(.@"enum") orelse
-        p.consume(.@"union") orelse return error.UnexpectedToken ;
+        p.consume(.@"union") orelse return error.UnexpectedToken).kind;
 
     // todo : support for things like packed structs,
     //  and enums with backing integers, as well as tagged unions decls
@@ -520,7 +521,7 @@ fn parseTypeDecl(p: *Parser) Error!*Ast.Expr {
     const members = p.parseContainerMembers();
     _ = p.consume(.r_brace) orelse return error.UnexpectedToken;
 
-    const decl = switch(token.kind) {
+    const decl = switch(kind) {
         .@"struct" => Ast.Expr {.literal_struct = .{ .members = members }},
         .@"enum" => Ast.Expr {.literal_enum = .{ .members = members }},
         .@"union" => Ast.Expr {.literal_union = .{ .members = members }},
