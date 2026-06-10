@@ -184,7 +184,14 @@ fn renderExpr(expr: *Ast.Expr, src: [:0]const u8) void {
             indent();
             std.debug.print("}}", .{});
         },
-        .builtin_call => {},
+        .builtin_call => |b| {
+            std.debug.print("{s}(", .{ src[b.name.start..b.name.end] });
+            for (b.args, 0..) |e, i| {
+                renderExpr(e, src);
+                if (i != b.args.len - 1) std.debug.print(", ", .{});
+            }
+            std.debug.print(")", .{});
+        },
         .call => |c| {
             std.debug.print("{s}(", .{src[c.name.start..c.name.end]});
             for (c.args, 0..) |e, i| {
@@ -202,7 +209,10 @@ fn renderExpr(expr: *Ast.Expr, src: [:0]const u8) void {
                 std.debug.print("true", .{});
             } else std.debug.print("false", .{});
         },
-        .literal_char => {},
+        .literal_char => |c| {
+            TerminalColor.green();
+            std.debug.print("'{s}'", .{src[c.start..c.end]});
+        },
         .literal_enum => |e| {
             TerminalColor.red();
             std.debug.print("enum  ", .{});
@@ -236,7 +246,16 @@ fn renderExpr(expr: *Ast.Expr, src: [:0]const u8) void {
             std.debug.print("}}", .{});
         },
         .literal_trait => {},
-        .literal_union => {},
+        .literal_union => |u| {
+            TerminalColor.red();
+            std.debug.print("union ", .{});
+            TerminalColor.clear();
+            std.debug.print("{{\n", .{});
+            depth += 1;
+            for (u.members) |m| renderStmt(m, src);
+            depth -= 1;
+            std.debug.print("}}", .{});
+        },
         .loop => |l| {
             TerminalColor.red();
             std.debug.print("loop ", .{});

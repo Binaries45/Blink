@@ -222,7 +222,10 @@ fn parseFn(p: *Parser) Error!*Ast.Stmt {
 }
 
 fn parseFnCall(p: *Parser) Error!*Ast.Expr {
-    const name = p.consume(.identifier) orelse return error.ExpectedIdentifier;
+    const name = p.consume(.identifier) orelse
+        p.consume(.builtin)
+        orelse return error.ExpectedIdentifier;
+
     _ = p.consume(.l_paren);
 
     // todo : parse args
@@ -234,20 +237,24 @@ fn parseFnCall(p: *Parser) Error!*Ast.Expr {
     }
 
     _ = p.consume(.r_paren);
-    return Ast.Expr.create(p.alloc, .{ .call = .{
-        .name = name,
-        .args = args.toOwnedSlice(p.alloc) catch unreachable,
-    }});
+
+    const call = if (name.kind == .builtin) blk: {
+        break :blk Ast.Expr.create(p.alloc, .{ .builtin_call = .{
+            .name = name,
+            .args = args.toOwnedSlice(p.alloc) catch unreachable,
+        }});
+    } else blk: {
+        break :blk Ast.Expr.create(p.alloc, .{ .call = .{
+            .name = name,
+            .args = args.toOwnedSlice(p.alloc) catch unreachable,
+        }});
+    };
+
+
+    return call;
 }
 
 fn parseExpr(p: *Parser) Error!*Ast.Expr {
-    // switch on next tokens kind
-    // numeric -> math expr
-    // operator -> math or type Expr (type expr if '*' otherwise math)
-    // keyword -> appropriate expression type
-    // ident -> ambiguous, could be type or normal expr
-    // builtin -> builtin fn call (we dont have these yet)
-    // else -> Unexpected Token
     return switch (p.peek().kind) {
         .int_literal,
         .float_literal,
@@ -261,7 +268,6 @@ fn parseExpr(p: *Parser) Error!*Ast.Expr {
         .@"enum",
         .@"union" => p.parseTypeExpr(),
 
-        // todo : builtin calls, block expressions, others
         .l_brace => p.parseBlock(),
 
         .@"if" => p.parseIf(),
@@ -270,6 +276,8 @@ fn parseExpr(p: *Parser) Error!*Ast.Expr {
         .@"for" => p.parseFor(),
         .@"break" => p.parseBreak(),
         .@"continue" => p.parseContinue(),
+
+        .builtin => p.parseFnCall(),
 
         .true, .false => Ast.Expr.create(p.alloc, .{ .literal_bool = p.next() }),
 
