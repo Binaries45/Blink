@@ -303,7 +303,7 @@ fn binaryPrecedence(kind: Token.Kind) ?u8 {
         .equal_equal, .bang_equal => 8,
         .l_angled, .r_angled, .l_angled_equal, .r_angled_equal => 9,
         .l_angled_angled, .r_angled_angled => 10,
-        .plus, .minus => 11,
+        .plus, .minus, => 11,
         .asterisk, .slash, .percent => 12,
         // todo : since member access is its own expr,
         // we may want to rework this, or we can just have an if clause

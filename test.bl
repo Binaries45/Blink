@@ -1,6 +1,5 @@
 pub let pi = 3.141592653;
 pub let tau = 2 * pi;
-pub let max = @max(pi, tau, 1);
 
 let Status = enum {
     alive,

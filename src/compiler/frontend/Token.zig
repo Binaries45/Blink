@@ -31,6 +31,7 @@ pub const Kind = enum {
     question,
 
     // operators
+    // todo : wrapping and saturating ops
     equal,
     equal_equal,
     plus,
