@@ -21,7 +21,7 @@ pub const Process = struct {
     }
 };
 
-pub fn parseArgs(args: *std.process.ArgIterator) !Process {
+pub fn parseArgs(args: *std.process.Args.Iterator) !Process {
     _ = args.next();
     const kind = args.next() orelse return error.ExpectedKind;
     const src = args.next() orelse return error.ExpectedSrc;

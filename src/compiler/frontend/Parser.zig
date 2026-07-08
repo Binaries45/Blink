@@ -16,7 +16,7 @@ pub const ParseError = struct {
     token: Token,
 };
 
-const Error = error {
+const Error = error{
     UnexpectedToken,
     ExpectedEof,
     ExpectedFn,
@@ -43,7 +43,7 @@ fn findNextDecl(p: *Parser) void {
     var level: u32 = 0;
     while (true) {
         const tok = p.next();
-        switch(tok.kind) {
+        switch (tok.kind) {
             .@"pub", .@"fn", .let => {
                 if (level == 0) {
                     p.pos -= 1;
@@ -58,7 +58,9 @@ fn findNextDecl(p: *Parser) void {
             },
             .comma, .semicolon => if (level == 0) return,
             .l_paren, .l_bracket, .l_brace => level += 1,
-            .r_paren, .r_bracket => if (level != 0) { level -= 1; },
+            .r_paren, .r_bracket => if (level != 0) {
+                level -= 1;
+            },
             .r_brace => {
                 if (level == 0) {
                     p.pos -= 1;
@@ -80,7 +82,7 @@ fn consume(p: *Parser, kind: Token.Kind) ?Token {
 }
 
 fn reportError(p: *Parser, err: Error) void {
-    const pe = ParseError {.err = err, .token = p.peek()};
+    const pe = ParseError{ .err = err, .token = p.peek() };
     p.errors.append(p.alloc, pe) catch unreachable;
 }
 
@@ -115,7 +117,7 @@ fn parseContainerMember(p: *Parser) Error!*Ast.Stmt {
         else => return if (is_pub) error.ExpectedPubItem else error.UnexpectedToken,
     };
 
-    return if (is_pub) Ast.Stmt.create(p.alloc, .{.pub_item = item}) else item;
+    return if (is_pub) Ast.Stmt.create(p.alloc, .{ .pub_item = item }) else item;
 }
 
 fn parseStatement(p: *Parser) Error!*Ast.Stmt {
@@ -149,11 +151,11 @@ fn parseField(p: *Parser) Error!*Ast.Stmt {
         _ = p.consume(.comma) orelse return error.UnexpectedToken;
     }
 
-    return Ast.Stmt.create(p.alloc, .{.field = .{
+    return Ast.Stmt.create(p.alloc, .{ .field = .{
         .name = name,
         .type_expr = ty,
         .default = default,
-    }});
+    } });
 }
 
 fn parseLet(p: *Parser) Error!*Ast.Stmt {
@@ -178,25 +180,25 @@ fn parseLet(p: *Parser) Error!*Ast.Stmt {
         .name = name,
         .type_expr = type_expr,
         .value_expr = value,
-    }}) else Ast.Stmt.create(p.alloc, .{ .let = .{
+    } }) else Ast.Stmt.create(p.alloc, .{ .let = .{
         .name = name,
         .type_expr = type_expr,
         .value_expr = value,
-    }});
+    } });
 }
 
 fn parseParamList(p: *Parser) Error![]const *Ast.Stmt {
     var params = std.ArrayList(*Ast.Stmt).initCapacity(p.alloc, 0) catch unreachable;
     defer params.deinit(p.alloc);
 
-    while(p.peek().kind != .r_paren) {
+    while (p.peek().kind != .r_paren) {
         const name = p.consume(.identifier) orelse return error.ExpectedIdentifier;
         _ = p.consume(.colon);
         const ty = try p.parseTypeExpr();
         params.append(p.alloc, Ast.Stmt.create(p.alloc, .{ .param = .{
             .name = name,
             .type_expr = ty,
-        }})) catch unreachable;
+        } })) catch unreachable;
         if (p.peek().kind == .comma) _ = p.next();
     }
 
@@ -213,18 +215,17 @@ fn parseFn(p: *Parser) Error!*Ast.Stmt {
     _ = p.consume(.equal) orelse return error.UnexpectedToken;
     const body = try p.parseExpr();
 
-    return Ast.Stmt.create(p.alloc, .{.fn_decl = .{
+    return Ast.Stmt.create(p.alloc, .{ .fn_decl = .{
         .name = name,
         .params = params,
         .ret_ty = ret_ty,
         .body = body,
-    }});
+    } });
 }
 
 fn parseFnCall(p: *Parser) Error!*Ast.Expr {
     const name = p.consume(.identifier) orelse
-        p.consume(.builtin)
-        orelse return error.ExpectedIdentifier;
+        p.consume(.builtin) orelse return error.ExpectedIdentifier;
 
     _ = p.consume(.l_paren);
 
@@ -242,31 +243,22 @@ fn parseFnCall(p: *Parser) Error!*Ast.Expr {
         break :blk Ast.Expr.create(p.alloc, .{ .builtin_call = .{
             .name = name,
             .args = args.toOwnedSlice(p.alloc) catch unreachable,
-        }});
+        } });
     } else blk: {
         break :blk Ast.Expr.create(p.alloc, .{ .call = .{
             .name = name,
             .args = args.toOwnedSlice(p.alloc) catch unreachable,
-        }});
+        } });
     };
-
 
     return call;
 }
 
 fn parseExpr(p: *Parser) Error!*Ast.Expr {
     return switch (p.peek().kind) {
-        .int_literal,
-        .float_literal,
-        .identifier,
-        .asterisk,
-        .minus,
-        .plus,
-        .l_paren => p.parsePrecedence(0),
+        .int_literal, .float_literal, .identifier, .asterisk, .minus, .plus, .l_paren => p.parsePrecedence(0),
 
-        .@"struct",
-        .@"enum",
-        .@"union" => p.parseTypeExpr(),
+        .@"struct", .@"enum", .@"union" => p.parseTypeExpr(),
 
         .l_brace => p.parseBlock(),
 
@@ -289,11 +281,7 @@ fn parseExpr(p: *Parser) Error!*Ast.Expr {
 /// or null if the given token kind is not a valid operator
 fn binaryPrecedence(kind: Token.Kind) ?u8 {
     return switch (kind) {
-        .equal, .ampersand_equal, .asterisk_equal,
-        .carat_equal, .l_angled_angled_equal,
-        .minus_equal, .percent_equal, .pipe_equal,
-        .plus_equal, .r_angled_angled_equal, .slash_equal,
-        .tilde_equal => 1,
+        .equal, .ampersand_equal, .asterisk_equal, .carat_equal, .l_angled_angled_equal, .minus_equal, .percent_equal, .pipe_equal, .plus_equal, .r_angled_angled_equal, .slash_equal, .tilde_equal => 1,
         .range, .range_inclusive => 2,
         .pipe_pipe => 3,
         .ampersand_ampersand => 4,
@@ -303,7 +291,9 @@ fn binaryPrecedence(kind: Token.Kind) ?u8 {
         .equal_equal, .bang_equal => 8,
         .l_angled, .r_angled, .l_angled_equal, .r_angled_equal => 9,
         .l_angled_angled, .r_angled_angled => 10,
-        .plus, .minus, => 11,
+        .plus,
+        .minus,
+        => 11,
         .asterisk, .slash, .percent => 12,
         // todo : since member access is its own expr,
         // we may want to rework this, or we can just have an if clause
@@ -315,12 +305,7 @@ fn binaryPrecedence(kind: Token.Kind) ?u8 {
 
 fn unaryPrecedence(kind: Token.Kind) ?u8 {
     return switch (kind) {
-        .plus,
-        .minus,
-        .asterisk,
-        .ampersand,
-        .bang,
-        .tilde => 13,
+        .plus, .minus, .asterisk, .ampersand, .bang, .tilde => 13,
         else => null,
     };
 }
@@ -330,11 +315,11 @@ fn primary(p: *Parser) Error!*Ast.Expr {
         return Ast.Expr.create(p.alloc, .{ .unary = .{
             .op = p.next(),
             .operand = try p.primary(),
-        }});
+        } });
     }
 
     // todo : handle unary ops properly
-    return state: switch(p.peek().kind) {
+    return state: switch (p.peek().kind) {
         .int_literal => Ast.Expr.create(p.alloc, .{ .literal_int = p.next() }),
         .float_literal => Ast.Expr.create(p.alloc, .{ .literal_float = p.next() }),
         .l_paren => {
@@ -354,23 +339,23 @@ fn primary(p: *Parser) Error!*Ast.Expr {
 fn parsePrecedence(p: *Parser, min_prec: u8) Error!*Ast.Expr {
     var lhs = try p.primary();
 
-    while(true) {
+    while (true) {
         const current = p.peek();
         const prec = binaryPrecedence(current.kind) orelse break;
         if (prec < min_prec) break;
         _ = p.next();
 
         lhs = if (current.kind == .period) blk: {
-            break :blk Ast.Expr.create(p.alloc,.{ .access = .{
+            break :blk Ast.Expr.create(p.alloc, .{ .access = .{
                 .container = lhs,
                 .member = p.consume(.identifier) orelse return error.ExpectedIdentifier,
-            }});
+            } });
         } else blk: {
             break :blk Ast.Expr.create(p.alloc, .{ .binary = .{
                 .op = current,
                 .left = lhs,
                 .right = try p.parsePrecedence(prec),
-            }});
+            } });
         };
     }
 
@@ -378,16 +363,16 @@ fn parsePrecedence(p: *Parser, min_prec: u8) Error!*Ast.Expr {
 }
 
 fn parseTypeExpr(p: *Parser) Error!*Ast.Expr {
-    return state: switch(p.peek().kind) {
+    return state: switch (p.peek().kind) {
         .question => Ast.Expr.create(p.alloc, .{ .unary = .{
             .op = p.next(),
             .operand = try p.parseTypeExpr(),
-        }}),
+        } }),
         // todo : pointer modifiers like *const
         .asterisk => Ast.Expr.create(p.alloc, .{ .unary = .{
             .op = p.next(),
             .operand = try p.parseTypeExpr(),
-        }}),
+        } }),
         .l_bracket => {
             _ = p.next();
             // todo : check for size or other modifiers
@@ -395,25 +380,26 @@ fn parseTypeExpr(p: *Parser) Error!*Ast.Expr {
             const elem = try p.parseTypeExpr();
             return Ast.Expr.create(p.alloc, .{ .array_of = .{
                 .elem = elem,
-            }});
+            } });
         },
         .identifier => {
             // todo : comptime function call support
             const tok = p.next();
             var expr = Ast.Expr.create(p.alloc, .{ .ident = tok });
-            while(p.peek().kind == .period) {
+            while (p.peek().kind == .period) {
                 _ = p.next();
-                if(p.peek().kind != .identifier) break :state error.ExpectedIdentifier;
+                if (p.peek().kind != .identifier) break :state error.ExpectedIdentifier;
                 expr = Ast.Expr.create(p.alloc, .{ .access = .{
                     .container = expr,
                     .member = p.next(),
-                }});
+                } });
             }
             break :state expr;
         },
         .@"struct",
         .@"enum",
-        .@"union", => p.parseTypeDecl(),
+        .@"union",
+        => p.parseTypeDecl(),
         else => error.UnexpectedToken,
     };
 }
@@ -422,15 +408,13 @@ fn parseBlock(p: *Parser) Error!*Ast.Expr {
     _ = p.consume(.l_brace) orelse return Error.UnexpectedToken;
     var statements = std.ArrayList(*Ast.Stmt).initCapacity(p.alloc, 0) catch unreachable;
 
-    while(p.peek().kind != .r_brace) {
+    while (p.peek().kind != .r_brace) {
         const stmt = try p.parseStatement();
         statements.append(p.alloc, stmt) catch unreachable;
     }
 
     _ = p.consume(.r_brace) orelse return Error.UnexpectedToken;
-    return Ast.Expr.create(p.alloc, .{ .block = .{
-        .content = statements.toOwnedSlice(p.alloc) catch unreachable
-    }});
+    return Ast.Expr.create(p.alloc, .{ .block = .{ .content = statements.toOwnedSlice(p.alloc) catch unreachable } });
 }
 
 fn parseIf(p: *Parser) Error!*Ast.Expr {
@@ -451,7 +435,7 @@ fn parseIf(p: *Parser) Error!*Ast.Expr {
         .clause = clause,
         .then_body = then_body,
         .else_body = else_body,
-    }});
+    } });
 }
 
 fn parseLoop(p: *Parser) Error!*Ast.Expr {
@@ -459,7 +443,7 @@ fn parseLoop(p: *Parser) Error!*Ast.Expr {
     const body = try p.parseExpr();
     return Ast.Expr.create(p.alloc, .{ .loop = .{
         .body = body,
-    }});
+    } });
 }
 
 fn parseWhile(p: *Parser) Error!*Ast.Expr {
@@ -474,7 +458,7 @@ fn parseWhile(p: *Parser) Error!*Ast.Expr {
     return Ast.Expr.create(p.alloc, .{ .@"while" = .{
         .clause = clause,
         .body = body,
-    }});
+    } });
 }
 
 fn parseFor(p: *Parser) Error!*Ast.Expr {
@@ -491,7 +475,7 @@ fn parseFor(p: *Parser) Error!*Ast.Expr {
         .capture = capture,
         .iterable = iterable,
         .body = body,
-    }});
+    } });
 }
 
 // todo for break and cont. we can have a label without needing a value,
@@ -503,7 +487,7 @@ fn parseBreak(p: *Parser) Error!*Ast.Expr {
     return Ast.Expr.create(p.alloc, .{ .@"break" = .{
         .label = label,
         .value = value,
-    }});
+    } });
 }
 
 fn parseContinue(p: *Parser) Error!*Ast.Expr {
@@ -513,26 +497,26 @@ fn parseContinue(p: *Parser) Error!*Ast.Expr {
     return Ast.Expr.create(p.alloc, .{ .@"break" = .{
         .label = label,
         .value = value,
-    }});
+    } });
 }
 
 fn parseTypeDecl(p: *Parser) Error!*Ast.Expr {
     const kind =
         (p.consume(.@"struct") orelse
-        p.consume(.@"enum") orelse
-        p.consume(.@"union") orelse return error.UnexpectedToken).kind;
+            (p.consume(.@"enum") orelse
+                (p.consume(.@"union") orelse return error.UnexpectedToken))).kind;
 
     // todo : support for things like packed structs,
-    //  and enums with backing integers, as well as tagged unions decls
+    //  and enums with backing integers, as well as tagged union decls
 
     _ = p.consume(.l_brace) orelse return error.UnexpectedToken;
     const members = p.parseContainerMembers();
     _ = p.consume(.r_brace) orelse return error.UnexpectedToken;
 
-    const decl = switch(kind) {
-        .@"struct" => Ast.Expr {.literal_struct = .{ .members = members }},
-        .@"enum" => Ast.Expr {.literal_enum = .{ .members = members }},
-        .@"union" => Ast.Expr {.literal_union = .{ .members = members }},
+    const decl = switch (kind) {
+        .@"struct" => Ast.Expr{ .literal_struct = .{ .members = members } },
+        .@"enum" => Ast.Expr{ .literal_enum = .{ .members = members } },
+        .@"union" => Ast.Expr{ .literal_union = .{ .members = members } },
         else => unreachable,
     };
 

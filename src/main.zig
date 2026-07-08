@@ -1,4 +1,5 @@
 const std = @import("std");
+const Io = std.Io;
 const cli = @import("cli.zig");
 const Compiler = @import("compiler.zig");
 
@@ -12,16 +13,11 @@ const Compiler = @import("compiler.zig");
 // will actually break out of the loop and not the if body,
 // or maybe we can just not have this functionality lol
 
-pub fn main() !void {
-    // var gpa = std.heap.GeneralPurposeAllocator(.{}).init;
-    var gpa = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    defer _ = gpa.deinit();
-    const alloc = gpa.allocator();
-
-    var args = try std.process.argsWithAllocator(alloc);
-    defer args.deinit();
+pub fn main(init: std.process.Init) !void {
+    const alloc = init.arena.allocator();
+    var args = try init.minimal.args.iterateAllocator(alloc);
 
     const proc = try cli.parseArgs(&args);
     // std.debug.print("{f}\n", .{proc}
-    try Compiler.compile(alloc, proc);
+    try Compiler.compile(alloc, init.io, proc);
 }

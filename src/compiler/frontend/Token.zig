@@ -88,7 +88,6 @@ pub const Kind = enum {
     @"struct",
     @"union",
     @"enum",
-    trait,
     let,
     mut,
     @"if",
@@ -97,7 +96,6 @@ pub const Kind = enum {
     @"while",
     @"for",
     loop,
-    impl,
     @"defer",
     in,
     @"break",
@@ -180,7 +178,6 @@ pub const keyword_map = std.StaticStringMap(Kind).initComptime(.{
     .{"struct", .@"struct"},
     .{"union", .@"union"},
     .{"enum", .@"enum"},
-    .{"trait", .trait},
     .{"let", .let},
     .{"mut", .mut},
     .{"if", .@"if"},
@@ -189,11 +186,6 @@ pub const keyword_map = std.StaticStringMap(Kind).initComptime(.{
     .{"while", .@"while"},
     .{"for", .@"for"},
     .{"loop", .loop},
-    // not sure if i want to have impl blocks,
-    // as i do also plan on extending the @This()
-    // function in blink, which would clash with
-    // rust style impl blocks.
-    .{"impl", .impl},
     .{"defer", .@"defer"},
     .{"in", .in},
     .{"break", .@"break"},
@@ -223,13 +215,11 @@ pub fn lexeme(kind: Token.Kind) ?[]const u8 {
         .@"union",
         .@"while",
         .false,
-        .impl,
         .in,
         .let,
         .loop,
         .mut,
         .ret,
-        .trait,
         .true => |t| @tagName(t),
 
         // symbols

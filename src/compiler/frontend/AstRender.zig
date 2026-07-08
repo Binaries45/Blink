@@ -2,16 +2,22 @@ const std = @import("std");
 const Ast = @import("Ast.zig");
 const Token = @import("Token.zig");
 
-var depth: u16 = 0; // yuck
-var in_pub: bool = false; // yuck x2
+var depth: u16 = 0;
+var in_pub: bool = false;
 
 const TerminalColor = struct {
-    fn clear() void { std.debug.print("\x1b[37m", .{}); }
-    fn red() void { std.debug.print("\x1b[31m", .{}); }
-    fn green() void { std.debug.print("\x1b[32m", .{}); }
-    fn yellow() void { std.debug.print("\x1b[33m", .{}); }
-    fn blue() void { std.debug.print("\x1b[34m", .{}); }
-    fn magenta() void { std.debug.print("\x1b[35m", .{}); }
+    // fn clear() void { std.debug.print("\x1b[37m", .{}); }
+    // fn red() void { std.debug.print("\x1b[31m", .{}); }
+    // fn green() void { std.debug.print("\x1b[32m", .{}); }
+    // fn yellow() void { std.debug.print("\x1b[33m", .{}); }
+    // fn blue() void { std.debug.print("\x1b[34m", .{}); }
+    // fn magenta() void { std.debug.print("\x1b[35m", .{}); }
+    fn clear() void { std.debug.print("", .{}); }
+    fn red() void { std.debug.print("", .{}); }
+    fn green() void { std.debug.print("", .{}); }
+    fn yellow() void { std.debug.print("", .{}); }
+    fn blue() void { std.debug.print("", .{}); }
+    fn magenta() void { std.debug.print("", .{}); }
 };
 
 
