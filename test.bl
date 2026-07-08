@@ -32,3 +32,4 @@ fn loops_test(n: u32) u32 = {
 }
 
 fn main() void = {}
+
