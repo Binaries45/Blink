@@ -112,7 +112,7 @@ fn parseContainerMember(p: *Parser) Error!*Ast.Stmt {
 
     const item = switch (p.peek().kind) {
         .identifier => try p.parseField(),
-        // .@"fn" => try p.parseFn(),
+        .@"fn" => try p.parseFn(),
         .let => try p.parseLet(),
         else => return if (is_pub) error.ExpectedPubItem else error.UnexpectedToken,
     };
@@ -123,7 +123,7 @@ fn parseContainerMember(p: *Parser) Error!*Ast.Stmt {
 fn parseStatement(p: *Parser) Error!*Ast.Stmt {
     return switch (p.peek().kind) {
         .let => try p.parseLet(),
-        // .@"fn" => try p.parseFn(),
+        .@"fn" => try p.parseFn(),
         // defer
         // loops, switch, if, ... (these can be statements or exprs)
         // but maybe we just leave them to the else clause
@@ -187,41 +187,41 @@ fn parseLet(p: *Parser) Error!*Ast.Stmt {
     } });
 }
 
-// fn parseParamList(p: *Parser) Error![]const *Ast.Stmt {
-//     var params = std.ArrayList(*Ast.Stmt).initCapacity(p.alloc, 0) catch unreachable;
-//     defer params.deinit(p.alloc);
+fn parseParamList(p: *Parser) Error![]const *Ast.Stmt {
+    var params = std.ArrayList(*Ast.Stmt).initCapacity(p.alloc, 0) catch unreachable;
+    defer params.deinit(p.alloc);
 
-//     while (p.peek().kind != .r_paren) {
-//         const name = p.consume(.identifier) orelse return error.ExpectedIdentifier;
-//         _ = p.consume(.colon);
-//         const ty = try p.parseTypeExpr();
-//         params.append(p.alloc, Ast.Stmt.create(p.alloc, .{ .param = .{
-//             .name = name,
-//             .type_expr = ty,
-//         } })) catch unreachable;
-//         if (p.peek().kind == .comma) _ = p.next();
-//     }
+    while (p.peek().kind != .r_paren) {
+        const name = p.consume(.identifier) orelse return error.ExpectedIdentifier;
+        _ = p.consume(.colon);
+        const ty = try p.parseTypeExpr();
+        params.append(p.alloc, Ast.Stmt.create(p.alloc, .{ .param = .{
+            .name = name,
+            .type_expr = ty,
+        } })) catch unreachable;
+        if (p.peek().kind == .comma) _ = p.next();
+    }
 
-//     return params.toOwnedSlice(p.alloc) catch unreachable;
-// }
+    return params.toOwnedSlice(p.alloc) catch unreachable;
+}
 
-// fn parseFn(p: *Parser) Error!*Ast.Stmt {
-//     _ = p.consume(.@"fn") orelse return error.ExpectedFn;
-//     const name = p.consume(.identifier) orelse return error.ExpectedIdentifier;
-//     _ = p.consume(.l_paren) orelse return error.ExpectedFn;
-//     const params = try p.parseParamList();
-//     _ = p.consume(.r_paren) orelse return error.ExpectedFn;
-//     const ret_ty = try p.parseTypeExpr();
-//     _ = p.consume(.equal) orelse return error.UnexpectedToken;
-//     const body = try p.parseExpr();
+fn parseFn(p: *Parser) Error!*Ast.Stmt {
+    _ = p.consume(.@"fn") orelse return error.ExpectedFn;
+    const name = p.consume(.identifier) orelse return error.ExpectedIdentifier;
+    _ = p.consume(.l_paren) orelse return error.ExpectedFn;
+    const params = try p.parseParamList();
+    _ = p.consume(.r_paren) orelse return error.ExpectedFn;
+    const ret_ty = try p.parseTypeExpr();
+    _ = p.consume(.equal) orelse return error.UnexpectedToken;
+    const body = try p.parseExpr();
 
-//     return Ast.Stmt.create(p.alloc, .{ .fn_decl = .{
-//         .name = name,
-//         .params = params,
-//         .ret_ty = ret_ty,
-//         .body = body,
-//     } });
-// }
+    return Ast.Stmt.create(p.alloc, .{ .fn_decl = .{
+        .name = name,
+        .params = params,
+        .ret_ty = ret_ty,
+        .body = body,
+    } });
+}
 
 fn parseFnCall(p: *Parser) Error!*Ast.Expr {
     const name = p.consume(.identifier) orelse
@@ -262,8 +262,6 @@ fn parseExpr(p: *Parser) Error!*Ast.Expr {
         .asterisk,
         .minus,
         .plus,
-        // TODO : find a way to dispatch to fn_literal parser.
-        //        or just have fn_lit capture use |...|
         .l_paren => p.parsePrecedence(0),
 
         .@"struct", .@"enum", .@"union", .@"fn" => p.parseTypeExpr(),

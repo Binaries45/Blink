@@ -291,7 +291,6 @@ pub fn next(self: *Self) Token {
             }
         },
         .slash => {
-            // todo : comment & doc comment support
             self.pos += 1;
             switch (self.buffer[self.pos]) {
                 '/' => continue :state .comment_start,

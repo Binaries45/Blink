@@ -76,7 +76,6 @@ pub const Kind = enum {
     char,
     int_literal,
     float_literal,
-    comment,
     doc_comment,
     container_doc_comment,
 
@@ -286,7 +285,6 @@ pub fn lexeme(kind: Token.Kind) ?[]const u8 {
         .int_literal,
         .float_literal,
         .string,
-        .comment,
         .doc_comment,
         .container_doc_comment,
         .unknown => null,

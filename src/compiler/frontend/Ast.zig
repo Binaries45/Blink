@@ -14,6 +14,8 @@ errors: []const Parser.ParseError,
 pub const Stmt = union(enum) {
     let: LetStmt,
     let_mut: LetMutStmt,
+    fn_decl: FnStmt,
+    param: ParamStmt,
     field: FieldStmt,
     /// an expression used as a statement
     expr: *Expr,
@@ -30,6 +32,18 @@ pub const Stmt = union(enum) {
         name: Token,
         type_expr: ?*Expr,
         value_expr: *Expr,
+    };
+
+    const FnStmt = struct {
+        name: Token,
+        params: []const *Stmt,
+        ret_ty: *Expr,
+        body: *Expr,
+    };
+
+    const ParamStmt = struct {
+        name: Token,
+        type_expr: *Expr,
     };
 
     const FieldStmt = struct {
@@ -54,8 +68,6 @@ pub const Expr = union(enum) {
     literal_string: Token,
     literal_bool: Token,
     ident: Token,
-    /// `( ...params... ) ret_ty { ... }`
-    fn_literal: FnLit,
 
     // conventional expressions
     unary: Unary,
@@ -80,8 +92,6 @@ pub const Expr = union(enum) {
     /// or
     /// `union (Tag) { ... }`
     literal_union: UnionLit,
-    /// `fn(param_ty, ...) ret_ty`
-    fn_signature: FnSig,
 
     // control flow
     @"if": IfExpr,
@@ -92,10 +102,6 @@ pub const Expr = union(enum) {
     block: BlockExpr,
     @"break": BreakExpr,
     @"continue": ContinueExpr,
-
-    const FnLit = struct {
-        // todo : store capture, return and body
-    };
 
     const Unary = struct {
         op: Token,
@@ -139,10 +145,6 @@ pub const Expr = union(enum) {
 
     const UnionLit = struct {
         members: []const *Stmt,
-    };
-
-    const FnSig = struct {
-        // todo : store param and return types
     };
 
     const IfExpr = struct {

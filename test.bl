@@ -15,20 +15,20 @@ let Person = struct {
     age: u8 = 0,
     status: Status,
 
-    pub const getAge = (p: Person) u8 { p.age }
+    pub fn getAge(p: Person) u8 = { p.age; }
 };
 
 // explicit fn typing
-let add: fn(u32, u32) u32 = (a, b) {
-    a + b
+fn add(a: u32, b: u32) u32 = {
+    a + b;
 }
 
 // inferred fn type, with implicit bool return type
-let even = (n: u32) {
-    if (n % 2 == 0) true else false
+fn even (n: u32) bool = {
+    if (n % 2 == 0) true else false;
 }
 
-let loops_test = (n: u32) u32 {
+fn loops_test(n: u32) u32 = {
     let mut res = 0;
     loop {
         res += n;
@@ -40,7 +40,9 @@ let loops_test = (n: u32) u32 {
     for _ in (0..n) res += n;
 }
 
-fn main() void = {}
+fn main() void = {
+    
+}
 
 // note : for functions, the types of params can never be inferred, so they will have to be stated somewhere,
 //        but return types can be omitted and inferred by the compiler
