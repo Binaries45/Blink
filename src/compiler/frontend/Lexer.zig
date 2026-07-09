@@ -37,6 +37,10 @@ const State = enum {
     range,
 
     identifier,
+    comment_start,
+    comment,
+    doc_comment_start,
+    doc_comment,
     builtin,
     string,
     char,
@@ -159,7 +163,7 @@ pub fn next(self: *Self) Token {
                 result.kind = .question;
                 self.pos += 1;
             },
-             else => continue :state .invalid,
+            else => continue :state .invalid,
         },
         .expect_newline => {
             self.pos += 1;
@@ -204,7 +208,7 @@ pub fn next(self: *Self) Token {
         },
         .builtin => {
             self.pos += 1;
-            switch(self.buffer[self.pos]) {
+            switch (self.buffer[self.pos]) {
                 'a'...'z', 'A'...'Z', '_', '0'...'9' => continue :state .builtin,
                 else => {},
             }
@@ -290,11 +294,93 @@ pub fn next(self: *Self) Token {
             // todo : comment & doc comment support
             self.pos += 1;
             switch (self.buffer[self.pos]) {
+                '/' => continue :state .comment_start,
                 '=' => {
                     result.kind = .slash_equal;
                     self.pos += 1;
                 },
                 else => result.kind = .slash,
+            }
+        },
+        .comment_start => {
+            self.pos += 1;
+            switch (self.buffer[self.pos]) {
+                0 => if (self.pos != self.buffer.len) {
+                    continue :state .invalid;
+                } else return .{
+                    .kind = .eof,
+                    .start = self.pos,
+                    .end = self.pos,
+                },
+                '!' => {
+                    result.kind = .container_doc_comment;
+                    continue :state .doc_comment;
+                },
+                '\n' => {
+                    self.pos += 1;
+                    result.start = self.pos;
+                    continue :state .start;
+                },
+                '/' => continue :state .doc_comment_start,
+                '\r' => continue :state .expect_newline,
+                0x01...0x09, 0x0b...0x0c, 0x0e...0x1f, 0x7f => {
+                    continue :state .invalid;
+                },
+                else => continue :state .comment,
+            }
+        },
+        .comment => {
+            self.pos += 1;
+            switch (self.buffer[self.pos]) {
+                0 => if (self.pos != self.buffer.len) {
+                    continue :state .invalid;
+                } else return .{
+                    .kind = .eof,
+                    .start = self.pos,
+                    .end = self.pos,
+                },
+                '\n' => {
+                    self.pos += 1;
+                    result.start = self.pos;
+                    continue :state .start;
+                },
+                '\r' => continue :state .expect_newline,
+                0x01...0x09, 0x0b...0x0c, 0x0e...0x1f, 0x7f => {
+                    continue :state .invalid;
+                },
+                else => continue :state .comment,
+            }
+        },
+        .doc_comment_start => {
+            self.pos += 1;
+            switch (self.buffer[self.pos]) {
+                0, '\n' => result.kind = .doc_comment,
+                '\r' => if (self.buffer[self.pos + 1] == '\n') {
+                    result.kind = .doc_comment;
+                } else {
+                    continue :state .invalid;
+                },
+                '/' => continue :state .comment,
+                0x01...0x09, 0x0b...0x0c, 0x0e...0x1f, 0x7f => {
+                    continue :state .invalid;
+                },
+                else => {
+                    result.kind = .doc_comment;
+                    continue :state .comment;
+                },
+            }
+        },
+        .doc_comment => {
+            self.pos += 1;
+            switch (self.buffer[self.pos]) {
+                0, '\n' => {},
+                '\r' => if (self.buffer[self.pos + 1] != '\n') {
+                    continue :state .invalid;
+                },
+                0x01...0x09, 0x0b...0x0c, 0x0e...0x1f, 0x7f => {
+                    continue :state .invalid;
+                },
+                else => continue :state .doc_comment,
             }
         },
         .percent => {

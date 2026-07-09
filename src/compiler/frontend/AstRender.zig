@@ -53,20 +53,6 @@ fn renderStmt(stmt: *Ast.Stmt, src: [:0]const u8) void {
 
             std.debug.print(",\n", .{});
         },
-        .fn_decl => |f| {
-            std.debug.print("fn ", .{});
-            TerminalColor.clear();
-            std.debug.print("{s}(", .{src[f.name.start..f.name.end]});
-            for(f.params, 0..) |s, i| {
-                renderStmt(s, src);
-                if (i != f.params.len - 1) std.debug.print(", ", .{});
-            }
-            std.debug.print(") ", .{});
-            renderExpr(f.ret_ty, src);
-            std.debug.print(" = ", .{});
-            renderExpr(f.body, src);
-            std.debug.print("\n", .{});
-        },
         .let => |l| {
             std.debug.print("let ", .{});
             TerminalColor.clear();
@@ -90,12 +76,6 @@ fn renderStmt(stmt: *Ast.Stmt, src: [:0]const u8) void {
             std.debug.print(" = ", .{});
             renderExpr(lm.value_expr, src);
             std.debug.print(";\n", .{});
-        },
-        .param => |p| {
-            TerminalColor.clear();
-            std.debug.print("{s}", .{src[p.name.start..p.name.end]});
-            std.debug.print(": ", .{});
-            renderExpr(p.type_expr, src);
         },
         .pub_item => |p| {
             in_pub = true;
@@ -206,6 +186,8 @@ fn renderExpr(expr: *Ast.Expr, src: [:0]const u8) void {
             }
             std.debug.print(")", .{});
         },
+        .fn_literal => {},
+        .fn_signature => {},
         .ident => |i| {
             std.debug.print("{s}", .{src[i.start..i.end]});
         },
@@ -251,7 +233,6 @@ fn renderExpr(expr: *Ast.Expr, src: [:0]const u8) void {
             depth -= 1;
             std.debug.print("}}", .{});
         },
-        .literal_trait => {},
         .literal_union => |u| {
             TerminalColor.red();
             std.debug.print("union ", .{});

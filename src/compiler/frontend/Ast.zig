@@ -14,9 +14,7 @@ errors: []const Parser.ParseError,
 pub const Stmt = union(enum) {
     let: LetStmt,
     let_mut: LetMutStmt,
-    fn_decl: FnStmt,
     field: FieldStmt,
-    param: ParamStmt,
     /// an expression used as a statement
     expr: *Expr,
     /// a public item declaration, can be a constant, or a function
@@ -34,22 +32,10 @@ pub const Stmt = union(enum) {
         value_expr: *Expr,
     };
 
-    const FnStmt = struct {
-        name: Token,
-        params: []const *Stmt,
-        ret_ty: *Expr,
-        body: *Expr,
-    };
-
     const FieldStmt = struct {
         name: Token,
         type_expr: ?*Expr,
         default: ?*Expr,
-    };
-
-    const ParamStmt = struct {
-        name: Token,
-        type_expr: *Expr,
     };
 
     pub fn create(alloc: std.mem.Allocator, val: Stmt) *Stmt {
@@ -68,6 +54,8 @@ pub const Expr = union(enum) {
     literal_string: Token,
     literal_bool: Token,
     ident: Token,
+    /// `( ...params... ) ret_ty { ... }`
+    fn_literal: FnLit,
 
     // conventional expressions
     unary: Unary,
@@ -92,9 +80,8 @@ pub const Expr = union(enum) {
     /// or
     /// `union (Tag) { ... }`
     literal_union: UnionLit,
-    // todo:  packed types `packed(Int) type_expr`
-    /// `todo : trait syntax`
-    literal_trait: TraitLit,
+    /// `fn(param_ty, ...) ret_ty`
+    fn_signature: FnSig,
 
     // control flow
     @"if": IfExpr,
@@ -105,6 +92,10 @@ pub const Expr = union(enum) {
     block: BlockExpr,
     @"break": BreakExpr,
     @"continue": ContinueExpr,
+
+    const FnLit = struct {
+        // todo : store capture, return and body
+    };
 
     const Unary = struct {
         op: Token,
@@ -150,8 +141,8 @@ pub const Expr = union(enum) {
         members: []const *Stmt,
     };
 
-    const TraitLit = struct {
-        // todo
+    const FnSig = struct {
+        // todo : store param and return types
     };
 
     const IfExpr = struct {
@@ -218,6 +209,11 @@ pub fn parse(alloc: std.mem.Allocator, src: [:0]const u8) !Ast {
 
     while (true) {
         const token = lexer.next();
+        // TODO : actually handle doc comments,
+        //        there will be build modes that output documentation,
+        //        and eventually an lsp will need these as context
+        if (token.kind == .doc_comment or token.kind == .container_doc_comment)
+            continue;
         try tokens.append(alloc, token);
         if (token.kind == .eof) break;
     }

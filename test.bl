@@ -1,6 +1,9 @@
+//! test container doc
+
 pub let pi = 3.141592653;
 pub let tau = 2 * pi;
 
+/// the status of a person
 let Status = enum {
     alive,
     just_kinda_sleepy,
@@ -16,16 +19,16 @@ let Person = struct {
 };
 
 // explicit fn typing
-const add: fn(u32, u32) u32 = (a, b) {
+let add: fn(u32, u32) u32 = (a, b) {
     a + b
 }
 
 // inferred fn type, with implicit bool return type
-const even = (n: u32) {
+let even = (n: u32) {
     if (n % 2 == 0) true else false
 }
 
-const loops_test = (n: u32) u32 {
+let loops_test = (n: u32) u32 {
     let mut res = 0;
     loop {
         res += n;
