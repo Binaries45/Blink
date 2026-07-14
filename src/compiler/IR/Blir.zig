@@ -3,8 +3,10 @@
 const Blir = @This();
 const Index = u32;
 
+
 /// a BLIR instruction
 pub const Inst = union(enum(u8)) {
+    // TODO : instructions for wrapping and saturating add
     add: Binary,
     sub: Binary,
     mul: Binary,
@@ -24,26 +26,30 @@ pub const Inst = union(enum(u8)) {
     cmp_ge: Binary,
     cmp_eq: Binary,
     cmp_ne: Binary,
-    /// left is size, right is the contained type
-    array_type: Binary,
-
+        
     neg: Unary,
     pos: Unary,
     not: Unary,
     bit_not: Unary,
     bool_not: Unary,
+
+    call: Call,
+
     /// ?T where the operand is T
     optional_type: Unary,
 
-    param: Param,
-
-    // todo : support sentinel arrays in the language
+    /// left is size, right is the contained type
+    array_type: Binary,
+    // TODO : support sentinel arrays in the language
 
     block: Block,
     /// let / let mut declaration
     declaration: Declaration,
+    
     fn_decl: FnDecl,
-    call: Call,
+
+    param: Param,
+
 
     /// an integer literal that fist within a u64
     int: u64,
@@ -53,6 +59,8 @@ pub const Inst = union(enum(u8)) {
     float: f64,
     /// a float literal that fits in an f128
     float_big: f128,
+
+    // TODO : ops for each builtin, prefixed with builtin_$NAME
 
     const Binary = struct {
         left: Index,

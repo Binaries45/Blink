@@ -87,12 +87,12 @@ fn reportError(p: *Parser, err: Error) void {
 }
 
 /// parse a file from the root, and return all top level nodes
-pub fn parseRoot(p: *Parser) ![]const *Ast.Stmt {
+pub fn parseRoot(p: *Parser) ![]const *Ast.Node {
     return p.parseContainerMembers();
 }
 
-fn parseContainerMembers(p: *Parser) []const *Ast.Stmt {
-    var members = std.ArrayList(*Ast.Stmt).initCapacity(p.alloc, 0) catch unreachable;
+fn parseContainerMembers(p: *Parser) []const *Ast.Node {
+    var members = std.ArrayList(*Ast.Node).initCapacity(p.alloc, 0) catch unreachable;
 
     while (p.peek().kind != .r_brace and p.peek().kind != .eof) {
         const member = p.parseContainerMember() catch |err| {
@@ -107,7 +107,7 @@ fn parseContainerMembers(p: *Parser) []const *Ast.Stmt {
     return members.toOwnedSlice(p.alloc) catch unreachable;
 }
 
-fn parseContainerMember(p: *Parser) Error!*Ast.Stmt {
+fn parseContainerMember(p: *Parser) Error!*Ast.Node {
     const is_pub = p.consume(.@"pub") != null;
 
     const item = switch (p.peek().kind) {
@@ -117,25 +117,26 @@ fn parseContainerMember(p: *Parser) Error!*Ast.Stmt {
         else => return if (is_pub) error.ExpectedPubItem else error.UnexpectedToken,
     };
 
-    return if (is_pub) Ast.Stmt.create(p.alloc, .{ .pub_item = item }) else item;
+    return if (is_pub) Ast.Node.create(p.alloc, .{ .pub_item = item }) else item;
 }
 
-fn parseStatement(p: *Parser) Error!*Ast.Stmt {
+fn parseStatement(p: *Parser) Error!*Ast.Node {
     return switch (p.peek().kind) {
         .let => try p.parseLet(),
         .@"fn" => try p.parseFn(),
+        .ret => try p.parseRet(),
         // defer
         // loops, switch, if, ... (these can be statements or exprs)
         // but maybe we just leave them to the else clause
         else => blk: {
-            const expr = Ast.Stmt.create(p.alloc, .{ .expr = try p.parseExpr() });
+            const expr = Ast.Node.create(p.alloc, .{ .expr = try p.parseExpr() });
             _ = p.consume(.semicolon) orelse return error.ExpectedSemicolon;
             break :blk expr;
         },
     };
 }
 
-fn parseField(p: *Parser) Error!*Ast.Stmt {
+fn parseField(p: *Parser) Error!*Ast.Node {
     const name = p.consume(.identifier) orelse return error.ExpectedIdentifier;
     const ty = if (p.peek().kind == .colon) blk: {
         _ = p.consume(.colon) orelse return error.UnexpectedToken;
@@ -151,14 +152,14 @@ fn parseField(p: *Parser) Error!*Ast.Stmt {
         _ = p.consume(.comma) orelse return error.UnexpectedToken;
     }
 
-    return Ast.Stmt.create(p.alloc, .{ .field = .{
+    return Ast.Node.create(p.alloc, .{ .field = .{
         .name = name,
         .type_expr = ty,
         .default = default,
     } });
 }
 
-fn parseLet(p: *Parser) Error!*Ast.Stmt {
+fn parseLet(p: *Parser) Error!*Ast.Node {
     _ = p.consume(.let) orelse return error.UnexpectedToken;
     const mutable = if (p.peek().kind == .mut) blk: {
         _ = p.next();
@@ -176,26 +177,26 @@ fn parseLet(p: *Parser) Error!*Ast.Stmt {
     const value = try p.parseExpr();
     _ = p.consume(.semicolon) orelse return error.ExpectedSemicolon;
 
-    return if (mutable) Ast.Stmt.create(p.alloc, .{ .let_mut = .{
+    return if (mutable) Ast.Node.create(p.alloc, .{ .let_mut = .{
         .name = name,
         .type_expr = type_expr,
         .value_expr = value,
-    } }) else Ast.Stmt.create(p.alloc, .{ .let = .{
+    } }) else Ast.Node.create(p.alloc, .{ .let = .{
         .name = name,
         .type_expr = type_expr,
         .value_expr = value,
     } });
 }
 
-fn parseParamList(p: *Parser) Error![]const *Ast.Stmt {
-    var params = std.ArrayList(*Ast.Stmt).initCapacity(p.alloc, 0) catch unreachable;
+fn parseParamList(p: *Parser) Error![]const *Ast.Node {
+    var params = std.ArrayList(*Ast.Node).initCapacity(p.alloc, 0) catch unreachable;
     defer params.deinit(p.alloc);
 
     while (p.peek().kind != .r_paren) {
         const name = p.consume(.identifier) orelse return error.ExpectedIdentifier;
         _ = p.consume(.colon);
         const ty = try p.parseTypeExpr();
-        params.append(p.alloc, Ast.Stmt.create(p.alloc, .{ .param = .{
+        params.append(p.alloc, Ast.Node.create(p.alloc, .{ .param = .{
             .name = name,
             .type_expr = ty,
         } })) catch unreachable;
@@ -205,7 +206,7 @@ fn parseParamList(p: *Parser) Error![]const *Ast.Stmt {
     return params.toOwnedSlice(p.alloc) catch unreachable;
 }
 
-fn parseFn(p: *Parser) Error!*Ast.Stmt {
+fn parseFn(p: *Parser) Error!*Ast.Node {
     _ = p.consume(.@"fn") orelse return error.ExpectedFn;
     const name = p.consume(.identifier) orelse return error.ExpectedIdentifier;
     _ = p.consume(.l_paren) orelse return error.ExpectedFn;
@@ -215,7 +216,7 @@ fn parseFn(p: *Parser) Error!*Ast.Stmt {
     _ = p.consume(.equal) orelse return error.UnexpectedToken;
     const body = try p.parseExpr();
 
-    return Ast.Stmt.create(p.alloc, .{ .fn_decl = .{
+    return Ast.Node.create(p.alloc, .{ .fn_decl = .{
         .name = name,
         .params = params,
         .ret_ty = ret_ty,
@@ -223,14 +224,14 @@ fn parseFn(p: *Parser) Error!*Ast.Stmt {
     } });
 }
 
-fn parseFnCall(p: *Parser) Error!*Ast.Expr {
+fn parseFnCall(p: *Parser) Error!*Ast.Node {
     const name = p.consume(.identifier) orelse
         p.consume(.builtin) orelse return error.ExpectedIdentifier;
 
     _ = p.consume(.l_paren);
 
     // todo : parse args
-    var args = std.ArrayList(*Ast.Expr).initCapacity(p.alloc, 0) catch unreachable;
+    var args = std.ArrayList(*Ast.Node).initCapacity(p.alloc, 0) catch unreachable;
     while (p.peek().kind != .r_paren) {
         const expr = try p.parseExpr();
         args.append(p.alloc, expr) catch unreachable;
@@ -240,12 +241,12 @@ fn parseFnCall(p: *Parser) Error!*Ast.Expr {
     _ = p.consume(.r_paren);
 
     const call = if (name.kind == .builtin) blk: {
-        break :blk Ast.Expr.create(p.alloc, .{ .builtin_call = .{
+        break :blk Ast.Node.create(p.alloc, .{ .builtin_call = .{
             .name = name,
             .args = args.toOwnedSlice(p.alloc) catch unreachable,
         } });
     } else blk: {
-        break :blk Ast.Expr.create(p.alloc, .{ .call = .{
+        break :blk Ast.Node.create(p.alloc, .{ .call = .{
             .name = name,
             .args = args.toOwnedSlice(p.alloc) catch unreachable,
         } });
@@ -254,7 +255,7 @@ fn parseFnCall(p: *Parser) Error!*Ast.Expr {
     return call;
 }
 
-fn parseExpr(p: *Parser) Error!*Ast.Expr {
+fn parseExpr(p: *Parser) Error!*Ast.Node {
     return switch (p.peek().kind) {
         .int_literal,
         .float_literal,
@@ -277,7 +278,7 @@ fn parseExpr(p: *Parser) Error!*Ast.Expr {
 
         .builtin => p.parseFnCall(),
 
-        .true, .false => Ast.Expr.create(p.alloc, .{ .literal_bool = p.next() }),
+        .true, .false => Ast.Node.create(p.alloc, .{ .literal_bool = p.next() }),
 
         else => error.UnexpectedToken,
     };
@@ -316,9 +317,9 @@ fn unaryPrecedence(kind: Token.Kind) ?u8 {
     };
 }
 
-fn primary(p: *Parser) Error!*Ast.Expr {
+fn primary(p: *Parser) Error!*Ast.Node {
     if (unaryPrecedence(p.peek().kind)) |_| {
-        return Ast.Expr.create(p.alloc, .{ .unary = .{
+        return Ast.Node.create(p.alloc, .{ .unary = .{
             .op = p.next(),
             .operand = try p.primary(),
         } });
@@ -326,8 +327,8 @@ fn primary(p: *Parser) Error!*Ast.Expr {
 
     // todo : handle unary ops properly
     return state: switch (p.peek().kind) {
-        .int_literal => Ast.Expr.create(p.alloc, .{ .literal_int = p.next() }),
-        .float_literal => Ast.Expr.create(p.alloc, .{ .literal_float = p.next() }),
+        .int_literal => Ast.Node.create(p.alloc, .{ .literal_int = p.next() }),
+        .float_literal => Ast.Node.create(p.alloc, .{ .literal_float = p.next() }),
         .l_paren => {
             const expr = p.parsePrecedence(0);
             _ = p.consume(.r_paren) orelse return error.UnexpectedToken;
@@ -336,13 +337,13 @@ fn primary(p: *Parser) Error!*Ast.Expr {
         .identifier => {
             // todo : detect function calls
             if (p.tokens[p.pos + 1].kind == .l_paren) break :state p.parseFnCall();
-            break :state Ast.Expr.create(p.alloc, .{ .ident = p.next() });
+            break :state Ast.Node.create(p.alloc, .{ .ident = p.next() });
         },
         else => error.UnexpectedToken,
     };
 }
 
-fn parsePrecedence(p: *Parser, min_prec: u8) Error!*Ast.Expr {
+fn parsePrecedence(p: *Parser, min_prec: u8) Error!*Ast.Node {
     var lhs = try p.primary();
 
     while (true) {
@@ -352,12 +353,12 @@ fn parsePrecedence(p: *Parser, min_prec: u8) Error!*Ast.Expr {
         _ = p.next();
 
         lhs = if (current.kind == .period) blk: {
-            break :blk Ast.Expr.create(p.alloc, .{ .access = .{
+            break :blk Ast.Node.create(p.alloc, .{ .access = .{
                 .container = lhs,
                 .member = p.consume(.identifier) orelse return error.ExpectedIdentifier,
             } });
         } else blk: {
-            break :blk Ast.Expr.create(p.alloc, .{ .binary = .{
+            break :blk Ast.Node.create(p.alloc, .{ .binary = .{
                 .op = current,
                 .left = lhs,
                 .right = try p.parsePrecedence(prec),
@@ -368,14 +369,14 @@ fn parsePrecedence(p: *Parser, min_prec: u8) Error!*Ast.Expr {
     return lhs;
 }
 
-fn parseTypeExpr(p: *Parser) Error!*Ast.Expr {
+fn parseTypeExpr(p: *Parser) Error!*Ast.Node {
     return state: switch (p.peek().kind) {
-        .question => Ast.Expr.create(p.alloc, .{ .unary = .{
+        .question => Ast.Node.create(p.alloc, .{ .unary = .{
             .op = p.next(),
             .operand = try p.parseTypeExpr(),
         } }),
         // todo : pointer modifiers like *const
-        .asterisk => Ast.Expr.create(p.alloc, .{ .unary = .{
+        .asterisk => Ast.Node.create(p.alloc, .{ .unary = .{
             .op = p.next(),
             .operand = try p.parseTypeExpr(),
         } }),
@@ -384,18 +385,18 @@ fn parseTypeExpr(p: *Parser) Error!*Ast.Expr {
             // todo : check for size or other modifiers
             _ = p.consume(.r_bracket) orelse return error.UnexpectedToken;
             const elem = try p.parseTypeExpr();
-            return Ast.Expr.create(p.alloc, .{ .array_of = .{
+            return Ast.Node.create(p.alloc, .{ .array_of = .{
                 .elem = elem,
             } });
         },
         .identifier => {
             // todo : comptime function call support
             const tok = p.next();
-            var expr = Ast.Expr.create(p.alloc, .{ .ident = tok });
+            var expr = Ast.Node.create(p.alloc, .{ .ident = tok });
             while (p.peek().kind == .period) {
                 _ = p.next();
                 if (p.peek().kind != .identifier) break :state error.ExpectedIdentifier;
-                expr = Ast.Expr.create(p.alloc, .{ .access = .{
+                expr = Ast.Node.create(p.alloc, .{ .access = .{
                     .container = expr,
                     .member = p.next(),
                 } });
@@ -411,9 +412,9 @@ fn parseTypeExpr(p: *Parser) Error!*Ast.Expr {
     };
 }
 
-fn parseBlock(p: *Parser) Error!*Ast.Expr {
+fn parseBlock(p: *Parser) Error!*Ast.Node {
     _ = p.consume(.l_brace) orelse return Error.UnexpectedToken;
-    var statements = std.ArrayList(*Ast.Stmt).initCapacity(p.alloc, 0) catch unreachable;
+    var statements = std.ArrayList(*Ast.Node).initCapacity(p.alloc, 0) catch unreachable;
 
     while (p.peek().kind != .r_brace) {
         const stmt = try p.parseStatement();
@@ -421,10 +422,10 @@ fn parseBlock(p: *Parser) Error!*Ast.Expr {
     }
 
     _ = p.consume(.r_brace) orelse return Error.UnexpectedToken;
-    return Ast.Expr.create(p.alloc, .{ .block = .{ .content = statements.toOwnedSlice(p.alloc) catch unreachable } });
+    return Ast.Node.create(p.alloc, .{ .block = .{ .content = statements.toOwnedSlice(p.alloc) catch unreachable } });
 }
 
-fn parseIf(p: *Parser) Error!*Ast.Expr {
+fn parseIf(p: *Parser) Error!*Ast.Node {
     _ = p.consume(.@"if") orelse return error.UnexpectedToken;
 
     _ = p.consume(.l_paren) orelse return error.UnexpectedToken;
@@ -438,22 +439,22 @@ fn parseIf(p: *Parser) Error!*Ast.Expr {
         break :blk try p.parseExpr();
     } else null;
 
-    return Ast.Expr.create(p.alloc, .{ .@"if" = .{
+    return Ast.Node.create(p.alloc, .{ .@"if" = .{
         .clause = clause,
         .then_body = then_body,
         .else_body = else_body,
     } });
 }
 
-fn parseLoop(p: *Parser) Error!*Ast.Expr {
+fn parseLoop(p: *Parser) Error!*Ast.Node {
     _ = p.consume(.loop) orelse return error.UnexpectedToken;
     const body = try p.parseExpr();
-    return Ast.Expr.create(p.alloc, .{ .loop = .{
+    return Ast.Node.create(p.alloc, .{ .loop = .{
         .body = body,
     } });
 }
 
-fn parseWhile(p: *Parser) Error!*Ast.Expr {
+fn parseWhile(p: *Parser) Error!*Ast.Node {
     _ = p.consume(.@"while") orelse return error.UnexpectedToken;
 
     _ = p.consume(.l_paren) orelse return error.UnexpectedToken;
@@ -462,13 +463,13 @@ fn parseWhile(p: *Parser) Error!*Ast.Expr {
 
     const body = try p.parseExpr();
 
-    return Ast.Expr.create(p.alloc, .{ .@"while" = .{
+    return Ast.Node.create(p.alloc, .{ .@"while" = .{
         .clause = clause,
         .body = body,
     } });
 }
 
-fn parseFor(p: *Parser) Error!*Ast.Expr {
+fn parseFor(p: *Parser) Error!*Ast.Node {
     _ = p.consume(.@"for") orelse return error.UnexpectedToken;
     const capture = try p.parseExpr();
     _ = p.consume(.in) orelse return error.UnexpectedToken;
@@ -478,7 +479,7 @@ fn parseFor(p: *Parser) Error!*Ast.Expr {
 
     const body = try p.parseExpr();
 
-    return Ast.Expr.create(p.alloc, .{ .@"for" = .{
+    return Ast.Node.create(p.alloc, .{ .@"for" = .{
         .capture = capture,
         .iterable = iterable,
         .body = body,
@@ -487,27 +488,34 @@ fn parseFor(p: *Parser) Error!*Ast.Expr {
 
 // todo for break and cont. we can have a label without needing a value,
 //  so this should be re-thought
-fn parseBreak(p: *Parser) Error!*Ast.Expr {
+fn parseBreak(p: *Parser) Error!*Ast.Node {
     _ = p.consume(.@"break") orelse return error.UnexpectedToken;
     const label = if (p.peek().kind == .identifier) p.next() else null;
     const value = if (label) |_| try p.parseExpr() else null;
-    return Ast.Expr.create(p.alloc, .{ .@"break" = .{
+    return Ast.Node.create(p.alloc, .{ .@"break" = .{
         .label = label,
         .value = value,
     } });
 }
 
-fn parseContinue(p: *Parser) Error!*Ast.Expr {
+fn parseContinue(p: *Parser) Error!*Ast.Node {
     _ = p.consume(.@"continue") orelse return error.UnexpectedToken;
     const label = if (p.peek().kind == .identifier) p.next() else null;
     const value = if (label) |_| try p.parseExpr() else null;
-    return Ast.Expr.create(p.alloc, .{ .@"break" = .{
+    return Ast.Node.create(p.alloc, .{ .@"break" = .{
         .label = label,
         .value = value,
     } });
 }
 
-fn parseTypeDecl(p: *Parser) Error!*Ast.Expr {
+fn parseRet(p: *Parser) Error!*Ast.Node {
+    _ = p.consume(.ret) orelse return Error.UnexpectedToken;
+    const expr = try p.parseExpr();
+    _ = p.consume(.semicolon) orelse return Error.ExpectedSemicolon;
+    return Ast.Node.create(p.alloc, .{ .ret_stmt = expr });
+}
+
+fn parseTypeDecl(p: *Parser) Error!*Ast.Node {
     const kind =
         (p.consume(.@"struct") orelse
             (p.consume(.@"enum") orelse
@@ -521,11 +529,11 @@ fn parseTypeDecl(p: *Parser) Error!*Ast.Expr {
     _ = p.consume(.r_brace) orelse return error.UnexpectedToken;
 
     const decl = switch (kind) {
-        .@"struct" => Ast.Expr{ .literal_struct = .{ .members = members } },
-        .@"enum" => Ast.Expr{ .literal_enum = .{ .members = members } },
-        .@"union" => Ast.Expr{ .literal_union = .{ .members = members } },
+        .@"struct" => Ast.Node{ .literal_struct = .{ .members = members } },
+        .@"enum" => Ast.Node{ .literal_enum = .{ .members = members } },
+        .@"union" => Ast.Node{ .literal_union = .{ .members = members } },
         else => unreachable,
     };
 
-    return Ast.Expr.create(p.alloc, decl);
+    return Ast.Node.create(p.alloc, decl);
 }

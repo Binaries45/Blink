@@ -15,17 +15,17 @@ let Person = struct {
     age: u8 = 0,
     status: Status,
 
-    pub fn getAge(p: Person) u8 = { p.age; }
+    pub fn getAge(p: Person) u8 = { ret p.age; }
 };
 
 // explicit fn typing
 fn add(a: u32, b: u32) u32 = {
-    a + b;
+    ret a + b;
 }
 
 // inferred fn type, with implicit bool return type
 fn even (n: u32) bool = {
-    if (n % 2 == 0) true else false;
+    ret if (n % 2 == 0) true else false;
 }
 
 fn loops_test(n: u32) u32 = {
@@ -38,6 +38,8 @@ fn loops_test(n: u32) u32 = {
     while (res < n * 10) res += n;
 
     for _ in (0..n) res += n;
+
+    ret res;
 }
 
 fn main() void = {
